@@ -1,0 +1,5 @@
+{
+  "name": "Smart EDT - Nettoyage Intelligent d'Emploi du Temps",
+  "description": "Application SaaS utilisant l'IA pour transformer des emplois du temps PDF complexes en versions propres et personnalisées pour les étudiants.",
+  "requestFramePermissions": []
+}
