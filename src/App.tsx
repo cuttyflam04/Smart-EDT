@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -14,6 +14,7 @@ import { jsPDF } from 'jspdf';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
+import { performOCR } from './services/ocrService';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -23,6 +24,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const WIPBadge = ({ className }: { className?: string }) => (
+  <span className={cn("px-1.5 py-0.5 bg-amber-100 text-amber-600 text-[8px] font-bold rounded uppercase tracking-wider", className)}>
+    WIP
+  </span>
+);
 
 export default function App() {
   const [preview, setPreview] = useState<string | null>(null);
@@ -34,9 +41,27 @@ export default function App() {
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<'idea' | 'bug'>('idea');
+  const [feedbackTitle, setFeedbackTitle] = useState('');
+  const [feedbackDescription, setFeedbackDescription] = useState('');
+  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+  const [ocrText, setOcrText] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [isCopied, setIsCopied] = useState(false);
+  const [enabledFeatures, setEnabledFeatures] = useState({
+    removeText: true,
+    removeColor: true,
+    wordBox: true,
+    wordBoxSimplified: false,
+    eraser: true,
+    zoom: true,
+    undoRedo: true,
+    ocr: true
+  });
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
@@ -159,24 +184,89 @@ export default function App() {
     link.click();
   };
 
+  const handleScanText = async () => {
+    if (!preview) return;
+    
+    setIsScanning(true);
+    setScanProgress(0);
+    setOcrText(null);
+    
+    try {
+      let imageToScan = processedPreview || preview;
+      
+      if (fileType === 'application/pdf' && !processedPreview) {
+        const converted = await convertPdfToImage(preview);
+        if (converted) imageToScan = converted;
+      }
+      
+      const text = await performOCR(imageToScan, (progress) => {
+        setScanProgress(progress);
+      });
+      
+      setOcrText(text);
+    } catch (error) {
+      console.error("OCR Error:", error);
+      alert("Erreur lors de l'analyse du texte.");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (!ocrText) return;
+    navigator.clipboard.writeText(ocrText);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-brand-bg)] text-[var(--color-brand-primary)] font-sans">
       {/* Header */}
       <header className="p-4 grid grid-cols-3 items-center border-b border-black/10">
-        <div className="w-10 h-10"> {/* Placeholder for left icon/button */}</div>
+        <div className="flex items-center">
+          {activeTab !== 'home' && (
+            <button 
+              onClick={() => setActiveTab('home')}
+              className="p-2 hover:bg-black/5 rounded-full transition-colors flex items-center gap-1 group"
+            >
+              <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-sm font-medium hidden sm:inline">Retour</span>
+            </button>
+          )}
+        </div>
         <div className="flex justify-center items-center gap-2">
           <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white">
             <Sparkles size={16} />
           </div>
           <h1 className="text-xl font-display font-bold tracking-tight">Smart EDT</h1>
         </div>
-        <div className="flex justify-end">
-          <button 
-            onClick={() => setActiveTab('settings')}
-            className="p-2 hover:bg-black/5 rounded-full transition-colors"
-          >
-            <Settings size={20} className="text-[var(--color-brand-accent)]" />
-          </button>
+        <div className="flex justify-end gap-2">
+          {activeTab === 'home' ? (
+            <>
+              <button 
+                onClick={() => setActiveTab('feedback')}
+                className="p-2 hover:bg-black/5 rounded-full transition-colors hidden md:block"
+                title="Dépôt d'idées & Bugs"
+              >
+                <MessageSquarePlus size={20} className="text-black/40" />
+              </button>
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className="p-2 hover:bg-black/5 rounded-full transition-colors"
+                title="Réglages"
+              >
+                <Settings size={20} className="text-[var(--color-brand-accent)]" />
+              </button>
+            </>
+          ) : (
+            <button 
+              onClick={() => setActiveTab('home')}
+              className="p-2 hover:bg-black/5 rounded-full transition-colors"
+              title="Fermer"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -260,6 +350,23 @@ export default function App() {
                       )}
                     </button>
 
+                    {enabledFeatures.ocr && (
+                      <button
+                        onClick={handleScanText}
+                        disabled={true}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all disabled:opacity-50 relative overflow-hidden group"
+                      >
+                        <Scan size={20} className="text-black/40" />
+                        <span className="text-black/40">Scanner le texte</span>
+                        <div className="absolute top-1 right-1">
+                          <WIPBadge />
+                        </div>
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[10px] text-amber-600 font-bold">Bientôt disponible !</span>
+                        </div>
+                      </button>
+                    )}
+
                     {processedPreview && (
                       <>
                         <button
@@ -312,13 +419,35 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="w-full max-w-md space-y-6 text-center"
             >
-              <div className="w-24 h-24 bg-black/5 rounded-full flex items-center justify-center mx-auto">
-                <User size={48} className="text-black/20" />
+              <div className="relative inline-block">
+                <div className="w-24 h-24 bg-black/5 rounded-full flex items-center justify-center mx-auto">
+                  <User size={48} className="text-black/20" />
+                </div>
+                <div className="absolute -top-1 -right-1">
+                  <WIPBadge className="text-[10px] px-2 py-1" />
+                </div>
               </div>
-              <h2 className="text-2xl font-bold">Mon Compte</h2>
-              <p className="text-black/60">Connectez-vous pour sauvegarder vos emplois du temps et y accéder partout.</p>
-              <button className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:brightness-95 transition-all">
-                Se connecter
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold">Espace Compte</h2>
+                <p className="text-black/60">
+                  Nous travaillons sur une synchronisation cloud pour vos emplois du temps !
+                </p>
+              </div>
+              
+              <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 space-y-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-amber-600">
+                  <Sparkles size={24} />
+                </div>
+                <p className="text-sm text-amber-800 font-medium">
+                  Cette fonctionnalité est en cours de développement. Revenez bientôt pour créer votre compte et sauvegarder vos EDT !
+                </p>
+              </div>
+
+              <button 
+                onClick={() => setActiveTab('home')}
+                className="w-full py-4 bg-black/5 text-black/60 rounded-2xl font-bold hover:bg-black/10 transition-all"
+              >
+                Retour à l'accueil
               </button>
             </motion.div>
           )}
@@ -371,10 +500,181 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="bg-white rounded-3xl border border-black/10 overflow-hidden">
+                <div className="p-6 space-y-6">
+                  <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
+                  <p className="text-sm text-black/40 -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
+                  
+                  <div className="space-y-6">
+                    {[
+                      { id: 'removeText', label: 'Effacer Texte', description: 'Supprime intelligemment le texte en conservant le fond.', icon: <Edit2 size={16} /> },
+                      { id: 'removeColor', label: 'Effacer Couleur', description: 'Baguette magique pour effacer une couleur spécifique.', icon: <Wand2 size={16} /> },
+                      { id: 'wordBox', label: 'Word Box', description: 'Ajoute des boîtes de texte stylisées avec mise en page.', icon: <Type size={16} /> },
+                      { id: 'eraser', label: 'Gomme', description: 'Remplace une zone par du blanc (outil classique).', icon: <Eraser size={16} /> },
+                      { id: 'zoom', label: 'Zoom & Pan', description: 'Permet de naviguer et de zoomer sur l\'image.', icon: <Maximize size={16} /> },
+                      { id: 'undoRedo', label: 'Annuler/Rétablir', description: 'Boutons pour revenir en arrière ou rétablir une action.', icon: <Undo size={16} /> },
+                      { id: 'ocr', label: 'Scan Texte (OCR)', description: 'Extrait le texte de l\'image pour le copier.', icon: <Scan size={16} /> },
+                    ].map((feature) => (
+                      <div key={feature.id} className="space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-3">
+                            <div className="w-10 h-10 flex items-center justify-center bg-black/5 rounded-xl text-black/40 shrink-0">
+                              {feature.icon}
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold leading-none">{feature.label}</p>
+                                {feature.id === 'ocr' && <WIPBadge />}
+                              </div>
+                              <p className="text-xs text-black/40 leading-tight">{feature.description}</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={(enabledFeatures as any)[feature.id]}
+                              onChange={(e) => setEnabledFeatures(prev => ({ ...prev, [feature.id]: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                          </label>
+                        </div>
+                        
+                        {feature.id === 'wordBox' && enabledFeatures.wordBox && (
+                          <div className="ml-13 p-3 bg-black/5 rounded-2xl flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-bold">Version simplifiée</p>
+                              <p className="text-[10px] text-black/40">Masque les options de mise en page avancées.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={enabledFeatures.wordBoxSimplified}
+                                onChange={(e) => setEnabledFeatures(prev => ({ ...prev, wordBoxSimplified: e.target.checked }))}
+                              />
+                              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="text-center space-y-2">
                 <p className="text-xs text-black/40 font-mono">VERSION 1.0.0</p>
                 <p className="text-xs text-black/40 font-mono">SMART EDT © 2026</p>
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'feedback' && (
+            <motion.div
+              key="feedback-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-md space-y-8"
+            >
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold">Dépôt d'idées & Bugs</h2>
+                <p className="text-black/60">Aidez-nous à améliorer Smart EDT en partageant vos retours.</p>
+              </div>
+
+              <form className="space-y-4" onSubmit={async (e) => {
+                e.preventDefault();
+                setIsSendingFeedback(true);
+                try {
+                  const response = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: feedbackType,
+                      title: feedbackTitle,
+                      description: feedbackDescription
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    alert('Merci pour votre retour ! Votre message a été envoyé sur Discord.');
+                    setFeedbackTitle('');
+                    setFeedbackDescription('');
+                    setActiveTab('home');
+                  } else {
+                    alert('Erreur lors de l\'envoi du feedback. Veuillez réessayer.');
+                  }
+                } catch (error) {
+                  console.error('Feedback error:', error);
+                  alert('Une erreur est survenue.');
+                } finally {
+                  setIsSendingFeedback(false);
+                }
+              }}>
+                <div className="bg-white rounded-3xl border border-black/10 p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-black/5 rounded-xl">
+                    <button 
+                      type="button"
+                      onClick={() => setFeedbackType('idea')}
+                      className={cn(
+                        "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
+                        feedbackType === 'idea' ? "bg-white shadow-sm" : "text-black/40 hover:text-black"
+                      )}
+                    >
+                      <Lightbulb size={18} className={feedbackType === 'idea' ? "text-amber-500" : "text-black/20"} />
+                      Idée
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setFeedbackType('bug')}
+                      className={cn(
+                        "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
+                        feedbackType === 'bug' ? "bg-white shadow-sm" : "text-black/40 hover:text-black"
+                      )}
+                    >
+                      <Bug size={18} className={feedbackType === 'bug' ? "text-red-500" : "text-black/20"} />
+                      Bug
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold ml-1">Titre</label>
+                    <input 
+                      type="text" 
+                      value={feedbackTitle}
+                      onChange={(e) => setFeedbackTitle(e.target.value)}
+                      placeholder="En quelques mots..."
+                      className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold ml-1">Description</label>
+                    <textarea 
+                      value={feedbackDescription}
+                      onChange={(e) => setFeedbackDescription(e.target.value)}
+                      placeholder="Détaillez votre idée ou le bug rencontré..."
+                      className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[120px] resize-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={isSendingFeedback}
+                  className="w-full py-4 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSendingFeedback ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Send size={18} />
+                  )}
+                  {isSendingFeedback ? 'Envoi en cours...' : 'Envoyer le message'}
+                </button>
+              </form>
             </motion.div>
           )}
         </AnimatePresence>
@@ -386,6 +686,7 @@ export default function App() {
           onClose={() => setIsEditorOpen(false)} 
           onSave={handleSaveEdit}
           autoRotateEnabled={autoRotateEnabled}
+          enabledFeatures={enabledFeatures}
         />
       )}
 
@@ -402,32 +703,45 @@ export default function App() {
           <button 
             onClick={() => setActiveTab('home')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-24 transition-all",
+              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
               activeTab === 'home' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
             )}
           >
-            <Calendar size={24} />
-            <span className="text-xs font-bold">Accueil</span>
+            <Calendar size={20} />
+            <span className="text-[10px] font-bold">Accueil</span>
           </button>
           <button 
             onClick={() => setActiveTab('account')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-24 transition-all",
+              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all relative",
               activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
             )}
           >
-            <User size={24} />
-            <span className="text-xs font-bold">Mon Compte</span>
+            <User size={20} />
+            <span className="text-[10px] font-bold">Compte</span>
+            <div className="absolute top-1 right-1">
+              <WIPBadge />
+            </div>
+          </button>
+          <button 
+            onClick={() => setActiveTab('feedback')}
+            className={cn(
+              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
+              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
+            )}
+          >
+            <MessageSquarePlus size={20} />
+            <span className="text-[10px] font-bold">Feedback</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-24 transition-all",
+              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
               activeTab === 'settings' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
             )}
           >
-            <Settings size={24} />
-            <span className="text-xs font-bold">Réglages</span>
+            <Settings size={20} />
+            <span className="text-[10px] font-bold">Réglages</span>
           </button>
         </div>
       </nav>

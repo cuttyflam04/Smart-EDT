@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings } from 'lucide-react';
+import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings, Pipette, AlignLeft, AlignCenter, AlignRight, Maximize2, Palette, Layers } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -12,6 +12,15 @@ interface ImageEditorProps {
   onClose: () => void;
   onSave: (editedImageUrl: string) => void;
   autoRotateEnabled: boolean;
+  enabledFeatures: {
+    removeText: boolean;
+    removeColor: boolean;
+    wordBox: boolean;
+    wordBoxSimplified: boolean;
+    eraser: boolean;
+    zoom: boolean;
+    undoRedo: boolean;
+  };
 }
 
 interface TextElement {
@@ -23,11 +32,11 @@ interface TextElement {
   fontFamily: string;
 }
 
-export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabled }: ImageEditorProps) {
+export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabled, enabledFeatures }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tool, setTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand'>('remove-text');
-  const [prevTool, setPrevTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand'>('remove-text');
+  const [tool, setTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('remove-text');
+  const [prevTool, setPrevTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('remove-text');
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -36,8 +45,23 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [currentPos, setCurrentPos] = useState({ x: 0, y: 0 });
   
+  const [brushSize, setBrushSize] = useState(20);
   const [manualBgColor, setManualBgColor] = useState('#ffffff');
   const [useManualColor, setUseManualColor] = useState(false);
+
+  const [isEnteringText, setIsEnteringText] = useState(false);
+  const [pendingTextBox, setPendingTextBox] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
+  const [boxText, setBoxText] = useState('');
+  const [boxFontSize, setBoxFontSize] = useState(16);
+  const [boxColor, setBoxColor] = useState('#000000');
+  const [boxBgColor, setBoxBgColor] = useState('#ffffff');
+  const [boxHasBg, setBoxHasBg] = useState(true);
+  const [boxPadding, setBoxPadding] = useState(10);
+  const [boxAlignment, setBoxAlignment] = useState<'left' | 'center' | 'right'>('left');
+  const [boxBorderWidth, setBoxBorderWidth] = useState(0);
+  const [boxBorderColor, setBoxBorderColor] = useState('#000000');
+  const [boxBorderRadius, setBoxBorderRadius] = useState(0);
+  const [boxBgOpacity, setBoxBgOpacity] = useState(1);
  
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
@@ -69,6 +93,11 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     window.addEventListener('resize', checkOrientation);
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts if typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       if (e.code === 'Space' && tool !== 'hand') {
         e.preventDefault();
         setPrevTool(tool);
@@ -89,6 +118,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       if (e.code === 'Space' && tool === 'hand') {
         setTool(prevTool);
       }
@@ -294,9 +327,29 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     setCurrentPos(pos);
     setIsDrawing(true);
 
+    if (tool === 'brush') {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = brushSize;
+      }
+    }
+
     if (tool === 'wand') {
       removeColorAt(pos.x, pos.y);
       setIsDrawing(false);
+      return;
+    }
+
+    if (tool === 'pipette') {
+      sampleColorAt(pos.x, pos.y);
+      setIsDrawing(false);
+      return;
     }
   };
 
@@ -333,7 +386,19 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     }
 
     if (!isDrawing || tool === 'wand') return;
-    setCurrentPos(getMousePos(e));
+    
+    const pos = getMousePos(e);
+    
+    if (tool === 'brush') {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+      }
+    }
+    
+    setCurrentPos(pos);
   };
 
   const handlePointerUp = () => {
@@ -360,6 +425,11 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(x, y, width, height);
       saveState();
+    } else if (tool === 'brush') {
+      saveState();
+    } else if (tool === 'text-box') {
+      setPendingTextBox({ x, y, w: width, h: height });
+      setIsEnteringText(true);
     } else if (tool === 'remove-text') {
       let finalBgColor = '';
 
@@ -408,6 +478,20 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       ctx.fillRect(x, y, width, height);
       saveState();
     }
+  };
+
+  const sampleColorAt = (x: number, y: number) => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    // Sample pixel color
+    const pixel = ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
+    const color = `#${((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1)}`;
+    
+    setManualBgColor(color);
+    setUseManualColor(true);
+    setTool('remove-text'); // Return to remove-text tool after picking color
   };
 
   const removeColorAt = (startX: number, startY: number) => {
@@ -460,6 +544,105 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     saveState();
   };
 
+  const commitTextBox = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || !pendingTextBox) return;
+
+    const { x, y, w, h } = pendingTextBox;
+
+    ctx.save();
+
+    // Draw background if needed
+    if (boxHasBg) {
+      ctx.globalAlpha = boxBgOpacity;
+      ctx.fillStyle = boxBgColor;
+      if (boxBorderRadius > 0) {
+        ctx.beginPath();
+        // @ts-ignore - roundRect might not be in all types yet but is in modern browsers
+        if (ctx.roundRect) {
+          // @ts-ignore
+          ctx.roundRect(x, y, w, h, boxBorderRadius);
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+        ctx.fill();
+      } else {
+        ctx.fillRect(x, y, w, h);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Draw border if needed
+    if (boxBorderWidth > 0) {
+      ctx.strokeStyle = boxBorderColor;
+      ctx.lineWidth = boxBorderWidth;
+      if (boxBorderRadius > 0) {
+        ctx.beginPath();
+        // @ts-ignore
+        if (ctx.roundRect) {
+          // @ts-ignore
+          ctx.roundRect(x, y, w, h, boxBorderRadius);
+        } else {
+          ctx.rect(x, y, w, h);
+        }
+        ctx.stroke();
+      } else {
+        ctx.strokeRect(x, y, w, h);
+      }
+    }
+
+    // Draw text
+    ctx.fillStyle = boxColor;
+    ctx.font = `${boxFontSize}px sans-serif`;
+    ctx.textBaseline = 'top';
+    
+    const maxWidth = w - (boxPadding * 2);
+    const lineHeight = boxFontSize * 1.2;
+    let currentY = y + boxPadding;
+
+    const drawAlignedLine = (text: string, lineX: number, lineY: number) => {
+      const metrics = ctx.measureText(text);
+      let drawX = lineX;
+      if (boxAlignment === 'center') {
+        drawX = lineX + (maxWidth - metrics.width) / 2;
+      } else if (boxAlignment === 'right') {
+        drawX = lineX + (maxWidth - metrics.width);
+      }
+      ctx.fillText(text, drawX, lineY);
+    };
+
+    // Handle manual line breaks and wrapping
+    const paragraphs = boxText.split('\n');
+    
+    for (const paragraph of paragraphs) {
+      const words = paragraph.split(' ');
+      let line = '';
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        const testWidth = metrics.width;
+        
+        if (testWidth > maxWidth && n > 0) {
+          drawAlignedLine(line.trim(), x + boxPadding, currentY);
+          line = words[n] + ' ';
+          currentY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      drawAlignedLine(line.trim(), x + boxPadding, currentY);
+      currentY += lineHeight; // Move to next line for the next paragraph
+    }
+
+    ctx.restore();
+    saveState();
+    setIsEnteringText(false);
+    setPendingTextBox(null);
+    setBoxText('');
+  };
+
   const handleSave = () => {
     if (!canvasRef.current) return;
     onSave(canvasRef.current.toDataURL('image/png'));
@@ -486,64 +669,124 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
           </button>
           <div className="h-6 w-px bg-black/10 mx-2" />
           
-          <button
-            onClick={() => { setTool('remove-text'); setPrevTool('remove-text'); }}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-              tool === 'remove-text' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
-            )}
-            title="Effacer Texte"
-          >
-            <Eraser size={18} />
-            <span className="hidden sm:inline">Effacer Texte</span>
-          </button>
+          {enabledFeatures.removeText && (
+            <>
+              <button
+                onClick={() => { setTool('remove-text'); setPrevTool('remove-text'); }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
+                  (tool === 'remove-text' || tool === 'pipette') ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                )}
+                title="Effacer Texte"
+              >
+                <Eraser size={18} />
+                <span className="hidden sm:inline">Effacer Texte</span>
+              </button>
 
-          {tool === 'remove-text' && (
-            <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-2">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
-                <input 
-                  type="checkbox" 
-                  checked={useManualColor} 
-                  onChange={(e) => setUseManualColor(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-[var(--color-brand-accent)] focus:ring-[var(--color-brand-accent)]"
-                />
-                <span>Couleur Manuelle</span>
-              </label>
-              {useManualColor && (
-                <input 
-                  type="color" 
-                  value={manualBgColor} 
-                  onChange={(e) => setManualBgColor(e.target.value)}
-                  className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
-                  title="Choisir la couleur de fond"
-                />
+              {(tool === 'remove-text' || tool === 'pipette') && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-2">
+                  <button
+                    onClick={() => setTool(tool === 'pipette' ? 'remove-text' : 'pipette')}
+                    className={cn(
+                      "p-1.5 rounded-md transition-colors",
+                      tool === 'pipette' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/10"
+                    )}
+                    title="Pipette (Prélever couleur)"
+                  >
+                    <Pipette size={16} />
+                  </button>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                    <input 
+                      type="checkbox" 
+                      checked={useManualColor} 
+                      onChange={(e) => setUseManualColor(e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-[var(--color-brand-accent)] focus:ring-[var(--color-brand-accent)]"
+                    />
+                    <span>Couleur Manuelle</span>
+                  </label>
+                  {useManualColor && (
+                    <input 
+                      type="color" 
+                      value={manualBgColor} 
+                      onChange={(e) => setManualBgColor(e.target.value)}
+                      className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent"
+                      title="Choisir la couleur de fond"
+                    />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {enabledFeatures.removeColor && (
+            <button
+              onClick={() => { setTool('wand'); setPrevTool('wand'); }}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
+                tool === 'wand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+              )}
+              title="Effacer Couleur"
+            >
+              <MousePointerClick size={18} />
+              <span className="hidden sm:inline">Effacer Couleur</span>
+            </button>
+          )}
+
+          {enabledFeatures.wordBox && (
+            <button
+              onClick={() => { setTool('text-box'); setPrevTool('text-box'); }}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
+                tool === 'text-box' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+              )}
+              title="Word Box (Boîte de texte)"
+            >
+              <Type size={18} />
+              <span className="hidden sm:inline">Word Box</span>
+            </button>
+          )}
+          
+          {enabledFeatures.eraser && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setTool('brush'); setPrevTool('brush'); }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
+                  tool === 'brush' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                )}
+                title="Gomme (Pinceau)"
+              >
+                <Eraser size={18} />
+                <span className="hidden sm:inline">Gomme</span>
+              </button>
+
+              <button
+                onClick={() => { setTool('eraser'); setPrevTool('eraser'); }}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
+                  tool === 'eraser' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                )}
+                title="Zone Blanche (Rectangle)"
+              >
+                <Square size={18} />
+                <span className="hidden sm:inline">Zone</span>
+              </button>
+
+              {(tool === 'brush' || tool === 'eraser') && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-1">
+                  <span className="text-[10px] font-bold text-black/40 uppercase">Taille</span>
+                  <input 
+                    type="range" 
+                    min="5" max="100" 
+                    value={brushSize} 
+                    onChange={(e) => setBrushSize(parseInt(e.target.value))}
+                    className="w-20 h-4 accent-[var(--color-brand-accent)]"
+                  />
+                  <span className="text-[10px] font-bold w-6">{brushSize}</span>
+                </div>
               )}
             </div>
           )}
-
-          <button
-            onClick={() => { setTool('wand'); setPrevTool('wand'); }}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-              tool === 'wand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
-            )}
-            title="Effacer Couleur"
-          >
-            <MousePointerClick size={18} />
-            <span className="hidden sm:inline">Effacer Couleur</span>
-          </button>
-          
-          <button
-            onClick={() => { setTool('eraser'); setPrevTool('eraser'); }}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-              tool === 'eraser' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
-            )}
-            title="Zone Blanche"
-          >
-            <Square size={18} />
-            <span className="hidden sm:inline">Zone Blanche</span>
-          </button>
 
           <button
             onClick={() => { setTool('hand'); setPrevTool('hand'); }}
@@ -559,13 +802,17 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
         </div>
 
         <div className="flex items-center gap-2 min-w-max ml-4">
-          <button onClick={undo} disabled={historyIndex <= 0} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Annuler">
-            <Undo size={20} />
-          </button>
-          <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Rétablir">
-            <Redo size={20} />
-          </button>
-          <div className="h-6 w-px bg-black/10 mx-2" />
+          {enabledFeatures.undoRedo && (
+            <>
+              <button onClick={undo} disabled={historyIndex <= 0} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Annuler">
+                <Undo size={20} />
+              </button>
+              <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Rétablir">
+                <Redo size={20} />
+              </button>
+              <div className="h-6 w-px bg-black/10 mx-2" />
+            </>
+          )}
           <button onClick={handleSave} className="flex items-center gap-2 px-4 py-1.5 bg-black text-white rounded-lg font-medium hover:bg-black/80 transition-colors">
             <Download size={18} />
             <span className="hidden sm:inline">Terminer</span>
@@ -594,7 +841,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
           style={{ 
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`, 
             transformOrigin: 'center center', 
-            cursor: tool === 'hand' ? (isPanning ? 'grabbing' : 'grab') : 'crosshair' 
+            cursor: tool === 'hand' ? (isPanning ? 'grabbing' : 'grab') : (tool === 'pipette' ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='m2 22 1-1h3l9-9M3 21v-3h3m9-5 4.4-4.4a3.3 3.3 0 0 0-4.7-4.7L10.3 8.3m9.7 2.7 3 3' stroke='black' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m2 22 1-1h3l9-9M3 21v-3h3m9-5 4.4-4.4a3.3 3.3 0 0 0-4.7-4.7L10.3 8.3m9.7 2.7 3 3' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E\") 2 22, crosshair" : 'crosshair') 
           }}
         >
           <canvas
@@ -620,40 +867,248 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               }}
             />
           )}
+
+          {isDrawing && tool === 'text-box' && (
+            <div 
+              className="absolute border-2 border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)]/5 pointer-events-none"
+              style={{ 
+                left: Math.min(startPos.x, currentPos.x), 
+                top: Math.min(startPos.y, currentPos.y), 
+                width: Math.abs(currentPos.x - startPos.x), 
+                height: Math.abs(currentPos.y - startPos.y) 
+              }}
+            />
+          )}
         </div>
       </div>
       
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-        <button 
-          onClick={() => setScale(s => Math.max(0.1, s - 0.1))} 
-          className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
-          title="Zoom arrière"
-        >
-          <ZoomOut size={18} />
-        </button>
-        
-        <div className="flex flex-col items-center px-2 min-w-[60px]">
-          <span className="font-mono text-xs font-bold">{Math.round(scale * 100)}%</span>
+      {enabledFeatures.zoom && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+          <button 
+            onClick={() => setScale(s => Math.max(0.1, s - 0.1))} 
+            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            title="Zoom arrière"
+          >
+            <ZoomOut size={18} />
+          </button>
+          
+          <div className="flex flex-col items-center px-2 min-w-[60px]">
+            <span className="font-mono text-xs font-bold">{Math.round(scale * 100)}%</span>
+          </div>
+
+          <button 
+            onClick={() => setScale(s => Math.min(10, s + 0.2))} 
+            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            title="Zoom avant"
+          >
+            <ZoomIn size={18} />
+          </button>
+
+          <div className="w-px h-4 bg-black/10 mx-1" />
+
+          <button 
+            onClick={resetView} 
+            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            title="Réinitialiser la vue"
+          >
+            <Maximize size={18} />
+          </button>
         </div>
+      )}
 
-        <button 
-          onClick={() => setScale(s => Math.min(10, s + 0.2))} 
-          className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
-          title="Zoom avant"
-        >
-          <ZoomIn size={18} />
-        </button>
+      {isEnteringText && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold">Word Box</h3>
+                <button onClick={() => setIsEnteringText(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
 
-        <div className="w-px h-4 bg-black/10 mx-1" />
+              <div className="space-y-4">
+                {/* Text Settings */}
+                <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Type size={16} className="text-black/40" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-black/40">Texte</span>
+                  </div>
+                  <div className="space-y-2">
+                    <textarea 
+                      value={boxText}
+                      onChange={(e) => setBoxText(e.target.value)}
+                      placeholder="Tapez votre texte ici..."
+                      className="w-full px-4 py-3 bg-white rounded-xl border border-black/5 focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[100px] resize-none"
+                      autoFocus
+                    />
+                  </div>
+                  {!enabledFeatures.wordBoxSimplified && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Taille</label>
+                          <input 
+                            type="number" 
+                            value={boxFontSize}
+                            onChange={(e) => setBoxFontSize(parseInt(e.target.value))}
+                            className="w-full px-3 py-2 bg-white rounded-lg border border-black/5 outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur</label>
+                          <input 
+                            type="color" 
+                            value={boxColor}
+                            onChange={(e) => setBoxColor(e.target.value)}
+                            className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Alignement</label>
+                        <div className="grid grid-cols-3 gap-1 p-1 bg-white rounded-lg border border-black/5">
+                          {(['left', 'center', 'right'] as const).map((align) => (
+                            <button
+                              key={align}
+                              onClick={() => setBoxAlignment(align)}
+                              className={cn(
+                                "flex items-center justify-center py-1.5 rounded transition-colors",
+                                boxAlignment === align ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5 text-black/40"
+                              )}
+                            >
+                              {align === 'left' && <AlignLeft size={18} />}
+                              {align === 'center' && <AlignCenter size={18} />}
+                              {align === 'right' && <AlignRight size={18} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
-        <button 
-          onClick={resetView} 
-          className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
-          title="Réinitialiser la vue"
-        >
-          <Maximize size={18} />
-        </button>
-      </div>
+                {!enabledFeatures.wordBoxSimplified && (
+                  <>
+                    {/* Box Settings */}
+                    <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Square size={16} className="text-black/40" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-black/40">Boîte</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Afficher le fond</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={boxHasBg}
+                            onChange={(e) => setBoxHasBg(e.target.checked)}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                        </label>
+                      </div>
+                      {boxHasBg && (
+                        <div className="space-y-3 pt-2">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur fond</label>
+                              <input 
+                                type="color" 
+                                value={boxBgColor}
+                                onChange={(e) => setBoxBgColor(e.target.value)}
+                                className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Opacité ({Math.round(boxBgOpacity * 100)}%)</label>
+                              <input 
+                                type="range" 
+                                min="0" max="1" step="0.1"
+                                value={boxBgOpacity}
+                                onChange={(e) => setBoxBgOpacity(parseFloat(e.target.value))}
+                                className="w-full h-9 accent-[var(--color-brand-accent)]"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Padding ({boxPadding}px)</label>
+                          <input 
+                            type="range" 
+                            min="0" max="50" step="1"
+                            value={boxPadding}
+                            onChange={(e) => setBoxPadding(parseInt(e.target.value))}
+                            className="w-full h-9 accent-[var(--color-brand-accent)]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Arrondi ({boxBorderRadius}px)</label>
+                          <input 
+                            type="range" 
+                            min="0" max="50" step="1"
+                            value={boxBorderRadius}
+                            onChange={(e) => setBoxBorderRadius(parseInt(e.target.value))}
+                            className="w-full h-9 accent-[var(--color-brand-accent)]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Border Settings */}
+                    <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Maximize2 size={16} className="text-black/40" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-black/40">Bordure</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Épaisseur ({boxBorderWidth}px)</label>
+                          <input 
+                            type="range" 
+                            min="0" max="10" step="1"
+                            value={boxBorderWidth}
+                            onChange={(e) => setBoxBorderWidth(parseInt(e.target.value))}
+                            className="w-full h-9 accent-[var(--color-brand-accent)]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur bordure</label>
+                          <input 
+                            type="color" 
+                            value={boxBorderColor}
+                            onChange={(e) => setBoxBorderColor(e.target.value)}
+                            className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                            disabled={boxBorderWidth === 0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsEnteringText(false)}
+                  className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-2xl font-bold transition-all"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={commitTextBox}
+                  className="flex-1 py-3 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-95 transition-all"
+                >
+                  <Check size={18} />
+                  Valider
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

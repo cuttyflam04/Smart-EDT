@@ -9,67 +9,86 @@
   --color-brand-primary: #141414;
   --color-brand-accent: #F27D26;
   --color-brand-bg: #E4E3E0;
+  --color-brand-surface: #FFFFFF;
+  --color-brand-border: rgba(20, 20, 20, 0.1);
 
   --color-dark-primary: #F5F5F5;
-  --color-dark-bg: #121212;
-  --color-dark-surface: #1E1E1E;
+  --color-dark-accent: #F27D26;
+  --color-dark-bg: #0F0F0F;
+  --color-dark-surface: #1A1A1A;
+  --color-dark-border: rgba(245, 245, 245, 0.1);
 }
 
 @layer base {
+  :root {
+    --bg: var(--color-brand-bg);
+    --text: var(--color-brand-primary);
+    --surface: var(--color-brand-surface);
+    --border: var(--color-brand-border);
+    --accent: var(--color-brand-accent);
+  }
+
+  .dark {
+    --bg: var(--color-dark-bg);
+    --text: var(--color-dark-primary);
+    --surface: var(--color-dark-surface);
+    --border: var(--color-dark-border);
+    --accent: var(--color-dark-accent);
+  }
+
   body {
-    @apply bg-[var(--color-brand-bg)] text-[var(--color-brand-primary)] font-sans transition-colors duration-300;
-  }
-
-  .dark body {
-    @apply bg-[var(--color-dark-bg)] text-[var(--color-dark-primary)];
+    background-color: var(--bg);
+    color: var(--text);
+    @apply font-sans transition-colors duration-300;
   }
 }
 
-.dark .bg-white {
-  @apply bg-[var(--color-dark-surface)] !important;
-}
+/* Global Dark Mode Overrides */
+.dark .bg-white { background-color: var(--surface) !important; }
+.dark .bg-white\/40 { background-color: rgba(255, 255, 255, 0.05) !important; }
+.dark .bg-white\/50 { background-color: rgba(255, 255, 255, 0.05) !important; }
+.dark .bg-white\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
+.dark .bg-white\/90 { background-color: rgba(0, 0, 0, 0.8) !important; backdrop-filter: blur(12px); }
 
-.dark .text-black {
-  @apply text-[var(--color-dark-primary)] !important;
-}
+.dark .text-black { color: var(--text) !important; }
+.dark .text-black\/40 { color: rgba(255, 255, 255, 0.4) !important; }
+.dark .text-black\/60 { color: rgba(255, 255, 255, 0.6) !important; }
+.dark .text-black\/20 { color: rgba(255, 255, 255, 0.2) !important; }
 
-.dark .text-black\/40 {
-  @apply text-white/40 !important;
-}
+.dark .bg-black { background-color: #000000 !important; }
+.dark .bg-black.rounded-full { background-color: var(--accent) !important; }
+.dark .bg-black\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
+.dark .bg-black\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
+.dark .bg-black\/20 { background-color: rgba(255, 255, 255, 0.15) !important; }
 
-.dark .text-black\/60 {
-  @apply text-white/60 !important;
-}
+.dark .border-black\/10 { border-color: var(--border) !important; }
+.dark .border-black\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
 
-.dark .bg-black\/5 {
-  @apply bg-white/5 !important;
-}
+.dark .bg-gray-200 { background-color: rgba(255, 255, 255, 0.1) !important; }
 
-.dark .bg-black\/10 {
-  @apply bg-white/10 !important;
-}
+.dark .hover\:bg-black\/5:hover { background-color: rgba(255, 255, 255, 0.08) !important; }
+.dark .hover\:bg-black\/10:hover { background-color: rgba(255, 255, 255, 0.12) !important; }
 
-.dark .border-black\/10 {
-  @apply border-white/10 !important;
-}
+/* Fix for specific utility classes used in App.tsx */
+.dark .bg-\[var\(--color-brand-bg\)\] { background-color: var(--bg) !important; }
+.dark .text-\[var\(--color-brand-primary\)\] { color: var(--text) !important; }
+.dark .bg-\[var\(--color-brand-accent\)\] { background-color: var(--accent) !important; }
+.dark .text-\[var\(--color-brand-accent\)\] { color: var(--accent) !important; }
 
-.dark .border-black\/5 {
-  @apply border-white/5 !important;
-}
-
-.dark .bg-white\/50 {
-  @apply bg-white/5 !important;
-}
-
-.dark .bg-white\/70 {
-  @apply bg-black/70 !important;
-}
+/* Shadows */
+.dark .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important; }
+.dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.6) !important; }
+.dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7) !important; }
+.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9) !important; }
 
 .data-grid-line {
-  @apply border-b border-[var(--color-brand-primary)]/10;
+  @apply border-b border-[var(--border)];
 }
 
 .glass-card {
   @apply bg-white/40 backdrop-blur-md border border-white/20 rounded-2xl;
 }
 
+.dark .glass-card {
+  @apply bg-black/40 border-white/10;
+}
