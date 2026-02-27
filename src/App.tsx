@@ -11,6 +11,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
@@ -115,6 +116,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const [devClicks, setDevClicks] = useState(0);
+  const [logoLinkEnabled, setLogoLinkEnabled] = useState(false);
+  const [logoLinkUrl, setLogoLinkUrl] = useState('https://github.com');
+  const [isCapturing, setIsCapturing] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'idea' | 'bug'>('idea');
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackDescription, setFeedbackDescription] = useState('');
@@ -290,6 +296,35 @@ export default function App() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handleCapturePage = async () => {
+    setIsCapturing(true);
+    try {
+      const canvas = await html2canvas(document.body, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: isDarkMode ? '#0F0F0F' : '#E4E3E0'
+      });
+      const link = document.createElement('a');
+      link.download = `SmartEDT_Capture_${new URL(window.location.href).hostname}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (error) {
+      console.error('Capture error:', error);
+      alert('Erreur lors de la capture de la page.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const handleDevClick = () => {
+    const newClicks = devClicks + 1;
+    setDevClicks(newClicks);
+    if (newClicks >= 5 && !isDeveloperMode) {
+      setIsDeveloperMode(true);
+      alert('Mode Développeur activé ! 🛠️');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--color-brand-bg)] text-[var(--color-brand-primary)] font-sans">
       {/* Header */}
@@ -306,7 +341,15 @@ export default function App() {
           )}
         </div>
         <div className="flex justify-center items-center">
-          <Logo showText={true} />
+          <div className="px-6 py-2 bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-black/5 dark:border-white/5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
+            {logoLinkEnabled ? (
+              <a href={logoLinkUrl} target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
+                <Logo showText={true} />
+              </a>
+            ) : (
+              <Logo showText={true} />
+            )}
+          </div>
         </div>
         <div className="flex justify-end gap-2">
           {activeTab === 'home' ? (
@@ -631,9 +674,74 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="text-center space-y-2">
-                <p className="text-xs text-black/40 font-mono">VERSION 1.0.0</p>
-                <p className="text-xs text-black/40 font-mono">SMART EDT © 2026</p>
+              <div className="text-center space-y-4">
+                {isDeveloperMode && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl p-6 space-y-4 text-left">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Settings size={20} />
+                      <h3 className="font-bold text-lg">Options Développeur</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold">Capture d'écran complète</p>
+                          <p className="text-xs text-black/40 dark:text-white/40">Génère une image de toute la page actuelle.</p>
+                        </div>
+                        <button 
+                          onClick={handleCapturePage}
+                          disabled={isCapturing}
+                          className="px-4 py-2 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 transition-colors disabled:opacity-50"
+                        >
+                          {isCapturing ? <Loader2 size={14} className="animate-spin" /> : 'Capturer'}
+                        </button>
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold">Logo Hypertexte</p>
+                            <p className="text-xs text-black/40 dark:text-white/40">Rend le logo cliquable vers un lien externe.</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={logoLinkEnabled}
+                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                          </label>
+                        </div>
+                        
+                        {logoLinkEnabled && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-amber-600/60 uppercase">URL du lien</p>
+                            <input 
+                              type="text" 
+                              value={logoLinkUrl}
+                              onChange={(e) => setLogoLinkUrl(e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none"
+                              placeholder="https://example.com"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button 
+                    onClick={handleDevClick}
+                    className="text-xs text-black/40 font-mono hover:text-black transition-colors"
+                  >
+                    VERSION 1.0.0
+                  </button>
+                  <p className="text-xs text-black/40 font-mono">SMART EDT © 2026</p>
+                </div>
               </div>
             </motion.div>
           )}
