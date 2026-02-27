@@ -12,6 +12,9 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
@@ -154,6 +157,21 @@ export default function App() {
     window.addEventListener('resize', updateWidth);
     return () => window.removeEventListener('resize', updateWidth);
   }, [preview]);
+
+  useEffect(() => {
+    const initNative = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light });
+          await StatusBar.setBackgroundColor({ color: isDarkMode ? '#0F0F0F' : '#E4E3E0' });
+          await SplashScreen.hide();
+        } catch (e) {
+          console.warn('Capacitor plugins not available:', e);
+        }
+      }
+    };
+    initNative();
+  }, [isDarkMode]);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -302,7 +320,24 @@ export default function App() {
       const canvas = await html2canvas(document.body, {
         useCORS: true,
         scale: 2,
-        backgroundColor: isDarkMode ? '#0F0F0F' : '#E4E3E0'
+        backgroundColor: isDarkMode ? '#0F0F0F' : '#E4E3E0',
+        onclone: (clonedDoc) => {
+          // html2canvas doesn't support oklab/oklch colors used by Tailwind 4
+          // We force standard colors in the cloned document for the capture
+          const style = clonedDoc.createElement('style');
+          style.innerHTML = `
+            :root {
+              --color-brand-bg: #E4E3E0 !important;
+              --color-brand-primary: #141414 !important;
+              --color-brand-accent: #F27D26 !important;
+            }
+            .dark {
+              --color-dark-bg: #0F0F0F !important;
+              --color-dark-primary: #F5F5F5 !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
       });
       const link = document.createElement('a');
       link.download = `SmartEDT_Capture_${new URL(window.location.href).hostname}.png`;
@@ -728,6 +763,23 @@ export default function App() {
                             />
                           </div>
                         )}
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold">Capacitor Native</p>
+                            <p className="text-xs text-black/40 dark:text-white/40">État de la plateforme native.</p>
+                          </div>
+                          <div className="px-2 py-1 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold">
+                            {Capacitor.getPlatform().toUpperCase()}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-black/40 dark:text-white/40 italic">
+                          L'application est configurée pour Capacitor. Utilisez `npm run build:cap` pour synchroniser avec Android Studio.
+                        </p>
                       </div>
                     </div>
                   </div>
