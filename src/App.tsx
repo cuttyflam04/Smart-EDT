@@ -15,6 +15,8 @@ import html2canvas from 'html2canvas';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
@@ -117,12 +119,27 @@ export default function App() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
-  const [autoRotateEnabled, setAutoRotateEnabled] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => {
+    const saved = localStorage.getItem('smartedt_autorotate');
+    return saved ? JSON.parse(saved) : true;
+  });
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('smartedt_darkmode');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [isDeveloperMode, setIsDeveloperMode] = useState(() => {
+    const saved = localStorage.getItem('smartedt_devmode');
+    return saved ? JSON.parse(saved) : false;
+  });
   const [devClicks, setDevClicks] = useState(0);
-  const [logoLinkEnabled, setLogoLinkEnabled] = useState(false);
-  const [logoLinkUrl, setLogoLinkUrl] = useState('https://github.com');
+  const [logoLinkEnabled, setLogoLinkEnabled] = useState(() => {
+    const saved = localStorage.getItem('smartedt_logolink_enabled');
+    return saved ? JSON.parse(saved) : false;
+  });
+  const [logoLinkUrl, setLogoLinkUrl] = useState(() => {
+    const saved = localStorage.getItem('smartedt_logolink_url');
+    return saved || 'https://github.com';
+  });
   const [isCapturing, setIsCapturing] = useState(false);
   const [feedbackType, setFeedbackType] = useState<'idea' | 'bug'>('idea');
   const [feedbackTitle, setFeedbackTitle] = useState('');
@@ -132,16 +149,65 @@ export default function App() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
-  const [enabledFeatures, setEnabledFeatures] = useState({
-    removeText: true,
-    removeColor: true,
-    wordBox: true,
-    wordBoxSimplified: false,
-    eraser: true,
-    zoom: true,
-    undoRedo: true,
-    ocr: true
+  const [enabledFeatures, setEnabledFeatures] = useState(() => {
+    const saved = localStorage.getItem('smartedt_features');
+    return saved ? JSON.parse(saved) : {
+      removeText: true,
+      removeColor: true,
+      wordBox: true,
+      wordBoxSimplified: false,
+      eraser: true,
+      zoom: true,
+      undoRedo: true,
+      ocr: true
+    };
   });
+
+  // Load saved preview on startup
+  useEffect(() => {
+    const savedPreview = localStorage.getItem('smartedt_current_preview');
+    if (savedPreview) {
+      setPreview(savedPreview);
+      const savedFileType = localStorage.getItem('smartedt_current_filetype');
+      if (savedFileType) setFileType(savedFileType);
+    }
+  }, []);
+
+  // Save preview when it changes
+  useEffect(() => {
+    if (preview) {
+      localStorage.setItem('smartedt_current_preview', preview);
+      if (fileType) localStorage.setItem('smartedt_current_filetype', fileType);
+    } else {
+      localStorage.removeItem('smartedt_current_preview');
+      localStorage.removeItem('smartedt_current_filetype');
+    }
+  }, [preview, fileType]);
+
+  // Save settings when they change
+  useEffect(() => {
+    localStorage.setItem('smartedt_darkmode', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('smartedt_features', JSON.stringify(enabledFeatures));
+  }, [enabledFeatures]);
+
+  useEffect(() => {
+    localStorage.setItem('smartedt_autorotate', JSON.stringify(autoRotateEnabled));
+  }, [autoRotateEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('smartedt_devmode', JSON.stringify(isDeveloperMode));
+  }, [isDeveloperMode]);
+
+  useEffect(() => {
+    localStorage.setItem('smartedt_logolink_enabled', JSON.stringify(logoLinkEnabled));
+  }, [logoLinkEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('smartedt_logolink_url', logoLinkUrl);
+  }, [logoLinkUrl]);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfContainerRef = useRef<HTMLDivElement>(null);
@@ -271,12 +337,30 @@ export default function App() {
     img.src = processedPreview;
   };
 
-  const handleDownloadImage = () => {
+  const handleDownloadImage = async () => {
     if (!processedPreview) return;
-    const link = document.createElement('a');
-    link.href = processedPreview;
-    link.download = 'EDT_modifie.png';
-    link.click();
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Share.share({
+          title: 'Mon Emploi du Temps',
+          text: 'Voici mon emploi du temps modifié avec Smart EDT',
+          url: processedPreview,
+          dialogTitle: 'Partager mon EDT',
+        });
+      } catch (e) {
+        console.error('Share error:', e);
+        const link = document.createElement('a');
+        link.href = processedPreview;
+        link.download = 'EDT_modifie.png';
+        link.click();
+      }
+    } else {
+      const link = document.createElement('a');
+      link.href = processedPreview;
+      link.download = 'EDT_modifie.png';
+      link.click();
+    }
   };
 
   const handleScanText = async () => {

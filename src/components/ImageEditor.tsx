@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings, Pipette, AlignLeft, AlignCenter, AlignRight, Maximize2, Palette, Layers } from 'lucide-react';
+import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings, Pipette, AlignLeft, AlignCenter, AlignRight, Maximize2, Palette, Layers, Sparkles, Wand2, RotateCw } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Keyboard } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,8 +37,8 @@ interface TextElement {
 export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabled, enabledFeatures }: ImageEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tool, setTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('remove-text');
-  const [prevTool, setPrevTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('remove-text');
+  const [tool, setTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('hand');
+  const [prevTool, setPrevTool] = useState<'wand' | 'eraser' | 'remove-text' | 'hand' | 'pipette' | 'text-box' | 'brush'>('hand');
   const [isDrawing, setIsDrawing] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -171,7 +173,14 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     
     const scaleX = availW / imageSize.width;
     const scaleY = availH / imageSize.height;
-    setScale(Math.min(scaleX, scaleY, 1));
+    
+    // Default zoom logic: 30% if landscape on mobile, otherwise fit
+    let initialScale = Math.min(scaleX, scaleY, 1);
+    if (availW > availH && window.innerWidth < 768) {
+      initialScale = 0.3;
+    }
+    
+    setScale(initialScale);
   }, [isRotated, imageLoaded, imageSize]);
 
   const resetView = () => {
@@ -194,10 +203,31 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     if (!canvas || !ctx) return;
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const newHistory = history.slice(0, historyIndex + 1);
+    let newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(imageData);
+    
+    // Limit history to 20 states for optimization
+    if (newHistory.length > 20) {
+      newHistory = newHistory.slice(newHistory.length - 20);
+    }
+    
     setHistory(newHistory);
     setHistoryIndex(newHistory.length - 1);
+  };
+
+  const clearAll = () => {
+    if (!window.confirm('Voulez-vous vraiment effacer toutes vos modifications ?')) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      saveState();
+    };
+    img.src = imageUrl;
   };
 
   const undo = () => {
@@ -377,10 +407,20 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
       
-      const dx = clientX - lastPanPos.x;
-      const dy = clientY - lastPanPos.y;
+      let dx = clientX - lastPanPos.x;
+      let dy = clientY - lastPanPos.y;
       
-      setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      if (isRotated) {
+        // Adjust pan delta for 90deg rotation
+        // Screen X -> Canvas Y
+        // Screen Y -> Canvas H - Canvas X
+        const actualDx = -dy;
+        const actualDy = dx;
+        setPanOffset(prev => ({ x: prev.x + actualDx, y: prev.y + actualDy }));
+      } else {
+        setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      }
+      
       setLastPanPos({ x: clientX, y: clientY });
       return;
     }
@@ -641,6 +681,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     setIsEnteringText(false);
     setPendingTextBox(null);
     setBoxText('');
+    
+    if (Capacitor.isNativePlatform()) {
+      Keyboard.hide().catch(() => {});
+    }
   };
 
   const handleSave = () => {
@@ -667,6 +711,9 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
           <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-full transition-colors" title="Fermer">
             <X size={20} />
           </button>
+          <button onClick={clearAll} className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors" title="Tout effacer">
+            <RotateCw size={20} />
+          </button>
           <div className="h-6 w-px bg-black/10 mx-2" />
           
           {enabledFeatures.removeText && (
@@ -679,7 +726,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 )}
                 title="Effacer Texte"
               >
-                <Eraser size={18} />
+                <Sparkles size={18} />
                 <span className="hidden sm:inline">Effacer Texte</span>
               </button>
 
@@ -727,7 +774,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               )}
               title="Effacer Couleur"
             >
-              <MousePointerClick size={18} />
+              <Wand2 size={18} />
               <span className="hidden sm:inline">Effacer Couleur</span>
             </button>
           )}
@@ -913,6 +960,19 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
           >
             <Maximize size={18} />
           </button>
+
+          <div className="w-px h-4 bg-black/10 mx-1" />
+
+          <button 
+            onClick={() => setIsRotated(!isRotated)} 
+            className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
+              isRotated ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+            )}
+            title="Changer l'orientation"
+          >
+            <RotateCw size={18} />
+          </button>
         </div>
       )}
 
@@ -1092,7 +1152,12 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
 
               <div className="flex gap-3 pt-2">
                 <button 
-                  onClick={() => setIsEnteringText(false)}
+                  onClick={() => {
+                    setIsEnteringText(false);
+                    if (Capacitor.isNativePlatform()) {
+                      Keyboard.hide().catch(() => {});
+                    }
+                  }}
                   className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-2xl font-bold transition-all"
                 >
                   Annuler
