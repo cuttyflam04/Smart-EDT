@@ -167,6 +167,12 @@ export default function App() {
   useEffect(() => {
     const savedPreview = localStorage.getItem('smartedt_current_preview');
     if (savedPreview) {
+      // Blob URLs are session-specific and invalid on reload
+      if (savedPreview.startsWith('blob:')) {
+        localStorage.removeItem('smartedt_current_preview');
+        localStorage.removeItem('smartedt_current_filetype');
+        return;
+      }
       setPreview(savedPreview);
       const savedFileType = localStorage.getItem('smartedt_current_filetype');
       if (savedFileType) setFileType(savedFileType);
@@ -176,8 +182,15 @@ export default function App() {
   // Save preview when it changes
   useEffect(() => {
     if (preview) {
-      localStorage.setItem('smartedt_current_preview', preview);
-      if (fileType) localStorage.setItem('smartedt_current_filetype', fileType);
+      try {
+        // Only save if it's not a blob URL (which would be invalid on reload)
+        if (!preview.startsWith('blob:')) {
+          localStorage.setItem('smartedt_current_preview', preview);
+          if (fileType) localStorage.setItem('smartedt_current_filetype', fileType);
+        }
+      } catch (e) {
+        console.warn('Failed to save preview to localStorage (likely too large):', e);
+      }
     } else {
       localStorage.removeItem('smartedt_current_preview');
       localStorage.removeItem('smartedt_current_filetype');
@@ -255,15 +268,16 @@ export default function App() {
       setNumPages(null);
       setPdfError(null);
 
-      if (selectedFile.type === 'application/pdf') {
-        setPreview(URL.createObjectURL(selectedFile));
-      } else {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setPreview(reader.result as string);
-        };
-        reader.readAsDataURL(selectedFile);
-      }
+      // Use FileReader for both images and PDFs to get a persistent Base64 string
+      // Blob URLs (URL.createObjectURL) are not persistent across reloads
+      const reader = new FileReader();
+      reader.onload = () => {
+        setPreview(reader.result as string);
+      };
+      reader.onerror = () => {
+        setPdfError("Erreur lors de la lecture du fichier.");
+      };
+      reader.readAsDataURL(selectedFile);
     }
   }, []);
 
