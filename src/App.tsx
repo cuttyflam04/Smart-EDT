@@ -358,13 +358,15 @@ export default function App() {
             directory: Directory.Cache,
           });
 
+          // Use 'files' instead of 'url' for local file sharing on Android
           await Share.share({
             title: 'Mon Emploi du Temps PDF',
-            url: result.uri,
+            files: [result.uri],
             dialogTitle: 'Enregistrer ou Partager le PDF',
           });
-        } catch (e) {
+        } catch (e: any) {
           console.error('PDF Native Save Error:', e);
+          alert("Erreur lors du partage du PDF : " + (e.message || e));
           pdf.save('EDT_modifie.pdf');
         }
       } else {
@@ -379,7 +381,6 @@ export default function App() {
     
     if (Capacitor.isNativePlatform()) {
       try {
-        // 1. Convert base64 to file on device for better sharing
         const fileName = `SmartEDT_${Date.now()}.png`;
         const base64Data = processedPreview.split(',')[1];
         
@@ -389,16 +390,16 @@ export default function App() {
           directory: Directory.Cache,
         });
 
-        // 2. Share the file URI (much more reliable than base64 URL)
+        // Use 'files' instead of 'url' for local file sharing on Android
         await Share.share({
           title: 'Mon Emploi du Temps',
           text: 'Voici mon emploi du temps modifié avec Smart EDT',
-          url: result.uri,
+          files: [result.uri],
           dialogTitle: 'Enregistrer ou Partager mon EDT',
         });
-      } catch (e) {
+      } catch (e: any) {
         console.error('Share error:', e);
-        // Fallback to standard download
+        alert("Erreur lors du partage de l'image : " + (e.message || e));
         const link = document.createElement('a');
         link.href = processedPreview;
         link.download = 'EDT_modifie.png';
