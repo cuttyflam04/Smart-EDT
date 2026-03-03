@@ -339,14 +339,39 @@ export default function App() {
     if (!processedPreview) return;
 
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       const pdf = new jsPDF({
         orientation: img.width > img.height ? 'l' : 'p',
         unit: 'px',
         format: [img.width, img.height]
       });
       pdf.addImage(processedPreview, 'PNG', 0, 0, img.width, img.height);
-      pdf.save('EDT_modifie.pdf');
+      
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const pdfBase64 = pdf.output('datauristring').split(',')[1];
+          const fileName = `SmartEDT_${Date.now()}.pdf`;
+          
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: pdfBase64,
+            directory: Directory.Cache,
+          });
+
+          // Use 'files' instead of 'url' for local file sharing on Android
+          await Share.share({
+            title: 'Mon Emploi du Temps PDF',
+            files: [result.uri],
+            dialogTitle: 'Enregistrer ou Partager le PDF',
+          });
+        } catch (e: any) {
+          console.error('PDF Native Save Error:', e);
+          alert("Erreur lors du partage du PDF : " + (e.message || e));
+          pdf.save('EDT_modifie.pdf');
+        }
+      } else {
+        pdf.save('EDT_modifie.pdf');
+      }
     };
     img.src = processedPreview;
   };
@@ -356,14 +381,25 @@ export default function App() {
     
     if (Capacitor.isNativePlatform()) {
       try {
+        const fileName = `SmartEDT_${Date.now()}.png`;
+        const base64Data = processedPreview.split(',')[1];
+        
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+
+        // Use 'files' instead of 'url' for local file sharing on Android
         await Share.share({
           title: 'Mon Emploi du Temps',
           text: 'Voici mon emploi du temps modifié avec Smart EDT',
-          url: processedPreview,
-          dialogTitle: 'Partager mon EDT',
+          files: [result.uri],
+          dialogTitle: 'Enregistrer ou Partager mon EDT',
         });
-      } catch (e) {
+      } catch (e: any) {
         console.error('Share error:', e);
+        alert("Erreur lors du partage de l'image : " + (e.message || e));
         const link = document.createElement('a');
         link.href = processedPreview;
         link.download = 'EDT_modifie.png';
