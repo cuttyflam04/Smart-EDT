@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings, Pipette, AlignLeft, AlignCenter, AlignRight, Maximize2, Palette, Layers, Sparkles, Wand2, RotateCw } from 'lucide-react';
+import { Eraser, MousePointerClick, Download, X, Undo, Redo, Type, Square, Check, Hand, ZoomIn, ZoomOut, Maximize, Settings, Pipette, AlignLeft, AlignCenter, AlignRight, Maximize2, Palette, Layers, Sparkles, Wand2, RotateCw, Smartphone } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Keyboard } from '@capacitor/keyboard';
@@ -987,9 +987,9 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
               isRotated ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
             )}
-            title="Changer l'orientation"
+            title="Rotation de l'écran"
           >
-            <RotateCw size={18} />
+            <Smartphone className={cn(isRotated ? "rotate-90" : "rotate-0", "transition-transform duration-300")} size={18} />
           </button>
         </div>
       )}
