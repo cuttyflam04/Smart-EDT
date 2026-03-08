@@ -853,7 +853,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 <span className="hidden sm:inline">Zone</span>
               </button>
 
-              {(tool === 'brush' || tool === 'eraser') && (
+              {tool === 'brush' && (
                 <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-1">
                   <span className="text-[10px] font-bold text-black/40 uppercase">Taille</span>
                   <input 
