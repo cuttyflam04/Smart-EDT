@@ -335,7 +335,7 @@ export default function App() {
     setIsEditorOpen(false);
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!processedPreview) return;
 
     const img = new Image();
@@ -349,24 +349,26 @@ export default function App() {
       
       if (Capacitor.isNativePlatform()) {
         try {
+          // Request permissions first
+          const perm = await Filesystem.checkPermissions();
+          if (perm.publicStorage !== 'granted') {
+            await Filesystem.requestPermissions();
+          }
+
           const pdfBase64 = pdf.output('datauristring').split(',')[1];
           const fileName = `SmartEDT_${Date.now()}.pdf`;
           
           const result = await Filesystem.writeFile({
             path: fileName,
             data: pdfBase64,
-            directory: Directory.Cache,
+            directory: Directory.Documents, // Save to Documents folder
+            recursive: true
           });
 
-          // Use 'files' instead of 'url' for local file sharing on Android
-          await Share.share({
-            title: 'Mon Emploi du Temps PDF',
-            files: [result.uri],
-            dialogTitle: 'Enregistrer ou Partager le PDF',
-          });
+          alert(`PDF enregistré avec succès dans vos Documents !\nNom: ${fileName}`);
         } catch (e: any) {
           console.error('PDF Native Save Error:', e);
-          alert("Erreur lors du partage du PDF : " + (e.message || e));
+          alert("Erreur lors de la sauvegarde du PDF : " + (e.message || e));
           pdf.save('EDT_modifie.pdf');
         }
       } else {
@@ -381,25 +383,26 @@ export default function App() {
     
     if (Capacitor.isNativePlatform()) {
       try {
+        // Request permissions first
+        const perm = await Filesystem.checkPermissions();
+        if (perm.publicStorage !== 'granted') {
+          await Filesystem.requestPermissions();
+        }
+
         const fileName = `SmartEDT_${Date.now()}.png`;
         const base64Data = processedPreview.split(',')[1];
         
-        const result = await Filesystem.writeFile({
+        await Filesystem.writeFile({
           path: fileName,
           data: base64Data,
-          directory: Directory.Cache,
+          directory: Directory.Documents, // Save to Documents folder
+          recursive: true
         });
 
-        // Use 'files' instead of 'url' for local file sharing on Android
-        await Share.share({
-          title: 'Mon Emploi du Temps',
-          text: 'Voici mon emploi du temps modifié avec Smart EDT',
-          files: [result.uri],
-          dialogTitle: 'Enregistrer ou Partager mon EDT',
-        });
+        alert(`Image enregistrée avec succès dans vos Documents !\nNom: ${fileName}`);
       } catch (e: any) {
-        console.error('Share error:', e);
-        alert("Erreur lors du partage de l'image : " + (e.message || e));
+        console.error('Save error:', e);
+        alert("Erreur lors de la sauvegarde de l'image : " + (e.message || e));
         const link = document.createElement('a');
         link.href = processedPreview;
         link.download = 'EDT_modifie.png';
@@ -410,6 +413,35 @@ export default function App() {
       link.href = processedPreview;
       link.download = 'EDT_modifie.png';
       link.click();
+    }
+  };
+
+  const handleShare = async () => {
+    if (!processedPreview) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const fileName = `SmartEDT_Share_${Date.now()}.png`;
+        const base64Data = processedPreview.split(',')[1];
+        
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+
+        await Share.share({
+          title: 'Mon Emploi du Temps',
+          text: 'Voici mon emploi du temps modifié avec Smart EDT',
+          files: [result.uri],
+          dialogTitle: 'Partager mon EDT',
+        });
+      } catch (e: any) {
+        console.error('Share error:', e);
+        alert("Erreur lors du partage : " + (e.message || e));
+      }
+    } else {
+      alert("Le partage natif n'est disponible que sur mobile.");
     }
   };
 
@@ -648,23 +680,35 @@ export default function App() {
                     )}
 
                     {processedPreview && (
-                      <>
-                        <button
-                          onClick={handleDownloadPdf}
-                          className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20"
-                        >
-                          <Download size={20} />
-                          Sauvegarder PDF
-                        </button>
-                        
-                        <button
-                          onClick={handleDownloadImage}
-                          className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all"
-                        >
-                          <ImageIcon size={20} />
-                          Sauvegarder Image
-                        </button>
-                      </>
+                      <div className="w-full flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center justify-center gap-4">
+                          <button
+                            onClick={handleDownloadPdf}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20"
+                          >
+                            <Download size={20} />
+                            Enregistrer PDF
+                          </button>
+                          
+                          <button
+                            onClick={handleDownloadImage}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all"
+                          >
+                            <ImageIcon size={20} />
+                            Enregistrer Image
+                          </button>
+                        </div>
+
+                        {Capacitor.isNativePlatform() && (
+                          <button
+                            onClick={handleShare}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-black text-white hover:brightness-95 transition-all"
+                          >
+                            <Send size={20} />
+                            Partager l'EDT
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
