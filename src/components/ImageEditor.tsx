@@ -91,7 +91,22 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       } else {
         setIsRotated(false);
       }
-      
+    };
+
+    checkOrientation();
+    window.addEventListener('resize', checkOrientation);
+    
+    return () => {
+      window.removeEventListener('resize', checkOrientation);
+      if (screen.orientation && (screen.orientation as any).unlock) {
+        (screen.orientation as any).unlock();
+      }
+    };
+  }, [autoRotateEnabled]);
+
+  // Update container size when rotated or resized
+  useEffect(() => {
+    const updateSize = () => {
       if (containerRef.current) {
         setContainerSize({
           width: containerRef.current.clientWidth,
@@ -100,9 +115,13 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       }
     };
 
-    checkOrientation();
-    window.addEventListener('resize', checkOrientation);
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, [isRotated]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts if typing in an input or textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -142,14 +161,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     window.addEventListener('keyup', handleKeyUp);
     
     return () => {
-      window.removeEventListener('resize', checkOrientation);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
-      if (screen.orientation && (screen.orientation as any).unlock) {
-        (screen.orientation as any).unlock();
-      }
     };
-  }, [tool, imageLoaded, imageSize, isRotated, prevTool, autoRotateEnabled]);
+  }, [tool, prevTool]);
 
   // Load image onto canvas
   useEffect(() => {
@@ -183,11 +198,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     const scaleX = availW / imageSize.width;
     const scaleY = availH / imageSize.height;
     
-    // Default zoom logic: 30% if landscape on mobile, otherwise fit
-    let initialScale = Math.min(scaleX, scaleY, 1);
-    if (availW > availH && window.innerWidth < 768) {
-      initialScale = 0.3;
-    }
+    // Default zoom logic: 30% if landscape, 25% if portrait
+    const initialScale = availW > availH ? 0.3 : 0.25;
     
     setScale(initialScale);
   }, [isRotated, imageLoaded, imageSize, containerSize]);
@@ -199,8 +211,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       const containerHeight = containerSize.height - 40;
       const availW = isRotated ? containerHeight : containerWidth;
       const availH = isRotated ? containerWidth : containerHeight;
-      const fitScale = Math.min(availW / imageSize.width, availH / imageSize.height, 1);
-      setScale(fitScale);
+      const defaultScale = availW > availH ? 0.3 : 0.25;
+      setScale(defaultScale);
     } else {
       setScale(1);
     }
@@ -713,7 +725,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
 
   return (
     <div className={cn(
-      "fixed inset-0 z-50 bg-black/90 flex flex-col transition-all duration-300",
+      "fixed z-50 bg-black/90 flex flex-col",
+      !isRotated && "inset-0",
       isRotated && "origin-center"
     )}
     style={isRotated ? {
@@ -721,6 +734,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       height: '100vw',
       top: '50%',
       left: '50%',
+      right: 'auto',
+      bottom: 'auto',
       transform: 'translate(-50%, -50%) rotate(90deg)'
     } : {}}
     >
