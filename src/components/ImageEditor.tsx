@@ -73,6 +73,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
   const [scale, setScale] = useState(1);
   const [isRotated, setIsRotated] = useState(false);
 
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
   // Handle orientation and rotation
   useEffect(() => {
     // Try to lock orientation if supported
@@ -88,6 +90,13 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
         setIsRotated(true);
       } else {
         setIsRotated(false);
+      }
+      
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight
+        });
       }
     };
 
@@ -163,10 +172,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
 
   // Recalculate scale when orientation or image changes
   useEffect(() => {
-    if (!imageLoaded || !containerRef.current) return;
+    if (!imageLoaded || containerSize.width === 0) return;
 
-    const containerWidth = containerRef.current.clientWidth - 40;
-    const containerHeight = containerRef.current.clientHeight - 40;
+    const containerWidth = containerSize.width - 40;
+    const containerHeight = containerSize.height - 40;
     
     const availW = isRotated ? containerHeight : containerWidth;
     const availH = isRotated ? containerWidth : containerHeight;
@@ -181,13 +190,13 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     }
     
     setScale(initialScale);
-  }, [isRotated, imageLoaded, imageSize]);
+  }, [isRotated, imageLoaded, imageSize, containerSize]);
 
   const resetView = () => {
     setPanOffset({ x: 0, y: 0 });
-    if (containerRef.current && imageLoaded) {
-      const containerWidth = containerRef.current.clientWidth - 40;
-      const containerHeight = containerRef.current.clientHeight - 40;
+    if (containerSize.width > 0 && imageLoaded) {
+      const containerWidth = containerSize.width - 40;
+      const containerHeight = containerSize.height - 40;
       const availW = isRotated ? containerHeight : containerWidth;
       const availH = isRotated ? containerWidth : containerHeight;
       const fitScale = Math.min(availW / imageSize.width, availH / imageSize.height, 1);
@@ -398,7 +407,17 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       const dx = midX - lastPanPos.x;
       const dy = midY - lastPanPos.y;
-      setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      
+      if (isRotated) {
+        // Adjust pan delta for 90deg rotation
+        // Screen X+ -> Component Y-
+        // Screen Y+ -> Component X+
+        const actualDx = dy;
+        const actualDy = -dx;
+        setPanOffset(prev => ({ x: prev.x + actualDx, y: prev.y + actualDy }));
+      } else {
+        setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      }
       setLastPanPos({ x: midX, y: midY });
       return;
     }
@@ -412,10 +431,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       
       if (isRotated) {
         // Adjust pan delta for 90deg rotation
-        // Screen X -> Canvas Y
-        // Screen Y -> Canvas H - Canvas X
-        const actualDx = -dy;
-        const actualDy = dx;
+        // Screen X+ -> Component Y-
+        // Screen Y+ -> Component X+
+        const actualDx = dy;
+        const actualDy = -dx;
         setPanOffset(prev => ({ x: prev.x + actualDx, y: prev.y + actualDy }));
       } else {
         setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
@@ -882,8 +901,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       >
         <div 
           className={cn(
-            "relative shadow-2xl bg-white",
-            !isPanning && !isDrawing && "transition-transform duration-75 ease-out"
+            "relative shadow-2xl bg-white"
           )}
           style={{ 
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${scale})`, 
