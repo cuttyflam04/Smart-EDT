@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application configuration",
+      "type": "object",
+      "properties": {
+        "discordWebhookUrl": {
+          "type": "string",
+          "description": "The URL of the Discord webhook for feedback"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "UID of the user who last updated the config"
+        }
+      },
+      "required": ["discordWebhookUrl"]
+    }
+  },
+  "firestore": {
+    "configs/global": {
+      "schema": "AppConfig",
+      "description": "Global configuration document"
+    }
+  }
+}

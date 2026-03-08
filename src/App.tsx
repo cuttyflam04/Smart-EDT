@@ -21,6 +21,9 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { performOCR } from './services/ocrService';
+import { auth, db, loginWithGoogle, handleFirestoreError, OperationType } from './firebase';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -132,6 +135,48 @@ export default function App() {
     return saved ? JSON.parse(saved) : false;
   });
   const [devClicks, setDevClicks] = useState(0);
+
+  // Firebase state
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'configs', 'global'), (snapshot) => {
+      if (snapshot.exists()) {
+        setDiscordWebhookUrl(snapshot.data().discordWebhookUrl || '');
+      }
+    }, (error) => {
+      console.log("Config read permission denied or error:", error.message);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const isAdmin = user?.email === "monstertrio04@gmail.com";
+
+  const handleSaveDiscordConfig = async () => {
+    if (!isAdmin) return;
+    setIsSavingConfig(true);
+    try {
+      await setDoc(doc(db, 'configs', 'global'), {
+        discordWebhookUrl,
+        updatedAt: serverTimestamp(),
+        updatedBy: user?.uid
+      });
+      alert('Configuration Discord mise à jour !');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'configs/global');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
   const [logoLinkEnabled, setLogoLinkEnabled] = useState(() => {
     const saved = localStorage.getItem('smartedt_logolink_enabled');
     return saved ? JSON.parse(saved) : false;
@@ -820,6 +865,60 @@ export default function App() {
                       />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-3xl border border-black/10 overflow-hidden">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-lg">Configuration Discord</h3>
+                    {!user ? (
+                      <button 
+                        onClick={loginWithGoogle}
+                        className="text-[10px] font-bold text-[var(--color-brand-accent)] uppercase tracking-wider hover:underline"
+                      >
+                        Connexion Admin
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-black/40 truncate max-w-[100px]">{user.email}</span>
+                        <button 
+                          onClick={() => auth.signOut()}
+                          className="text-[10px] font-bold text-red-500 uppercase tracking-wider hover:underline"
+                        >
+                          Déconnexion
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-black/40 uppercase ml-1">URL du Webhook</label>
+                      <div className="relative">
+                        <input 
+                          type="password" 
+                          value={discordWebhookUrl}
+                          onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                          disabled={!isAdmin}
+                          placeholder={isAdmin ? "https://discord.com/api/webhooks/..." : "Connectez-vous en tant qu'admin pour modifier"}
+                          className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none text-sm disabled:opacity-50"
+                        />
+                        {isAdmin && (
+                          <button 
+                            onClick={handleSaveDiscordConfig}
+                            disabled={isSavingConfig}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
+                          >
+                            {isSavingConfig ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-black/40 ml-1 italic">
+                        Cette URL est utilisée pour envoyer les feedbacks directement sur votre serveur Discord.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>

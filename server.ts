@@ -1,8 +1,19 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 dotenv.config();
+
+// Load Firebase config for REST API
+let firebaseConfig: any;
+try {
+  const configPath = join(process.cwd(), "firebase-applet-config.json");
+  firebaseConfig = JSON.parse(readFileSync(configPath, "utf8"));
+} catch (err) {
+  console.error("Could not load firebase-applet-config.json");
+}
 
 async function startServer() {
   const app = express();
@@ -13,7 +24,28 @@ async function startServer() {
   // API route for feedback
   app.post("/api/feedback", async (req, res) => {
     const { type, title, description } = req.body;
-    const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+    
+    let webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+
+    // Fetch from Firestore REST API (Lightweight, no SDK needed)
+    if (firebaseConfig) {
+      try {
+        const projectId = firebaseConfig.projectId;
+        const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
+        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/configs/global`;
+        
+        const firestoreRes = await fetch(url);
+        if (firestoreRes.ok) {
+          const data = await firestoreRes.json();
+          const remoteUrl = data.fields?.discordWebhookUrl?.stringValue;
+          if (remoteUrl) {
+            webhookUrl = remoteUrl;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching remote config:", err);
+      }
+    }
 
     if (!webhookUrl) {
       console.error("DISCORD_WEBHOOK_URL is not defined");
