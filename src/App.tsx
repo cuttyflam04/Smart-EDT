@@ -572,9 +572,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--color-brand-bg)] text-[var(--color-brand-primary)] font-sans">
+    <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)] font-sans transition-colors duration-300">
       {/* Header */}
-      <header className="p-4 grid grid-cols-3 items-center border-b border-black/10">
+      <header className="p-4 grid grid-cols-3 items-center border-b border-[var(--border)]">
         <div className="flex items-center">
           {activeTab !== 'home' && (
             <button 
@@ -658,7 +658,7 @@ export default function App() {
                   
                   <div 
                     ref={pdfContainerRef}
-                    className="w-full border-2 border-black/10 rounded-3xl overflow-hidden bg-white p-4 max-h-[70vh] overflow-y-auto"
+                    className="w-full border-2 border-[var(--border)] rounded-3xl overflow-hidden bg-[var(--surface)] p-4 max-h-[70vh] overflow-y-auto"
                   >
                     {fileType === 'application/pdf' && !processedPreview ? (
                       <Document 
@@ -691,7 +691,7 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="w-full p-4 bg-white/50 rounded-2xl border border-black/10 flex flex-wrap items-center justify-center gap-4">
+                  <div className="w-full p-4 bg-[var(--surface)]/50 rounded-2xl border border-[var(--border)] flex flex-wrap items-center justify-center gap-4">
                     <button
                       onClick={handleOpenEditor}
                       disabled={isProcessing}
@@ -740,7 +740,7 @@ export default function App() {
                           
                           <button
                             onClick={handleDownloadImage}
-                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all"
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--border)] transition-all"
                           >
                             <ImageIcon size={20} />
                             Enregistrer Image
@@ -837,7 +837,7 @@ export default function App() {
                 <p className="text-sm text-black/40">Personnalisez votre expérience Smart EDT.</p>
               </div>
               
-              <div className="bg-white dark:bg-black/40 rounded-3xl border border-black/10 dark:border-white/10 overflow-hidden shadow-sm">
+              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
                 <div className="p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -1022,7 +1022,7 @@ export default function App() {
                 </div>
               )}
 
-              <div className="bg-white dark:bg-black/40 rounded-3xl border border-black/10 dark:border-white/10 overflow-hidden shadow-sm">
+              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
                 <div className="p-6 space-y-6">
                   <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
                   <p className="text-sm text-black/40 -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
@@ -1139,7 +1139,7 @@ export default function App() {
                   setIsSendingFeedback(false);
                 }
               }}>
-                <div className="bg-white rounded-3xl border border-black/10 p-6 space-y-4">
+                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-2 p-1 bg-black/5 rounded-xl">
                     <button 
                       type="button"
