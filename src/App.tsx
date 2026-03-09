@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -572,9 +572,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--text)] font-sans transition-colors duration-300">
+    <div className="min-h-screen flex flex-col bg-[var(--color-brand-bg)] text-[var(--color-brand-primary)] font-sans">
       {/* Header */}
-      <header className="p-4 grid grid-cols-3 items-center border-b border-[var(--border)]">
+      <header className="p-4 grid grid-cols-3 items-center border-b border-black/10">
         <div className="flex items-center">
           {activeTab !== 'home' && (
             <button 
@@ -587,12 +587,9 @@ export default function App() {
           )}
         </div>
         <div className="flex justify-center items-center">
-          <div 
-            onClick={handleDevClick}
-            className="px-6 py-2 bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-black/5 dark:border-white/5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer active:scale-95"
-          >
+          <div className="px-6 py-2 bg-white/50 dark:bg-black/20 backdrop-blur-sm border border-black/5 dark:border-white/5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300">
             {logoLinkEnabled ? (
-              <a href={logoLinkUrl} target="_blank" rel="noopener noreferrer" className="block" onClick={(e) => e.stopPropagation()}>
+              <a href={logoLinkUrl} target="_blank" rel="noopener noreferrer" className="block cursor-pointer">
                 <Logo showText={true} />
               </a>
             ) : (
@@ -630,7 +627,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12 flex flex-col items-center justify-center pb-48 md:pb-12">
+      <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12 flex flex-col items-center justify-center pb-32 md:pb-12">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && (
             <motion.div 
@@ -658,7 +655,7 @@ export default function App() {
                   
                   <div 
                     ref={pdfContainerRef}
-                    className="w-full border-2 border-[var(--border)] rounded-3xl overflow-hidden bg-[var(--surface)] p-4 max-h-[70vh] overflow-y-auto"
+                    className="w-full border-2 border-black/10 rounded-3xl overflow-hidden bg-white p-4 max-h-[70vh] overflow-y-auto"
                   >
                     {fileType === 'application/pdf' && !processedPreview ? (
                       <Document 
@@ -691,7 +688,7 @@ export default function App() {
                     )}
                   </div>
 
-                  <div className="w-full p-4 bg-[var(--surface)]/50 rounded-2xl border border-[var(--border)] flex flex-wrap items-center justify-center gap-4">
+                  <div className="w-full p-4 bg-white/50 rounded-2xl border border-black/10 flex flex-wrap items-center justify-center gap-4">
                     <button
                       onClick={handleOpenEditor}
                       disabled={isProcessing}
@@ -740,7 +737,7 @@ export default function App() {
                           
                           <button
                             onClick={handleDownloadImage}
-                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--border)] transition-all"
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all"
                           >
                             <ImageIcon size={20} />
                             Enregistrer Image
@@ -832,12 +829,9 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="w-full max-w-md space-y-8"
             >
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Réglages</h2>
-                <p className="text-sm text-black/40">Personnalisez votre expérience Smart EDT.</p>
-              </div>
+              <h2 className="text-2xl font-bold text-center">Réglages</h2>
               
-              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
+              <div className="bg-white rounded-3xl border border-black/10 overflow-hidden">
                 <div className="p-6 space-y-6">
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -851,11 +845,11 @@ export default function App() {
                         checked={autoRotateEnabled}
                         onChange={(e) => setAutoRotateEnabled(e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
                   </div>
 
-                  <div className="h-px bg-black/5 dark:bg-white/5" />
+                  <div className="h-px bg-black/5" />
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
@@ -869,160 +863,67 @@ export default function App() {
                         checked={isDarkMode}
                         onChange={(e) => setIsDarkMode(e.target.checked)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
                   </div>
                 </div>
               </div>
 
-              {isDeveloperMode && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2">
-                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                      <Shield size={20} />
-                      <h3 className="font-bold text-lg">Dashboard Admin</h3>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setIsDeveloperMode(false);
-                        setDevClicks(0);
-                      }}
-                      className="text-[10px] font-bold text-amber-600/60 uppercase hover:text-amber-600 transition-colors"
-                    >
-                      Quitter le mode admin
-                    </button>
-                  </div>
-
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
-                    <div className="p-6 space-y-8">
-                      {/* Discord Config */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <MessageSquare size={18} className="text-amber-600" />
-                            <p className="font-bold">Configuration Discord</p>
-                          </div>
-                          {!user ? (
-                            <button 
-                              onClick={loginWithGoogle}
-                              className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline"
-                            >
-                              Connexion Admin
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-amber-600/60 truncate max-w-[100px]">{user.email}</span>
-                              <button 
-                                onClick={() => auth.signOut()}
-                                className="text-[10px] font-bold text-red-500 uppercase tracking-wider hover:underline"
-                              >
-                                Déconnexion
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">URL du Webhook</label>
-                          <div className="relative">
-                            <input 
-                              type="password" 
-                              value={discordWebhookUrl}
-                              onChange={(e) => setDiscordWebhookUrl(e.target.value)}
-                              disabled={!isAdmin}
-                              placeholder={isAdmin ? "https://discord.com/api/webhooks/..." : "Connectez-vous pour modifier"}
-                              className="w-full px-4 py-3 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
-                            />
-                            {isAdmin && (
-                              <button 
-                                onClick={handleSaveDiscordConfig}
-                                disabled={isSavingConfig}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-amber-600 text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
-                              >
-                                {isSavingConfig ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                              </button>
-                            )}
-                          </div>
-                        </div>
+              <div className="bg-white rounded-3xl border border-black/10 overflow-hidden">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-lg">Configuration Discord</h3>
+                    {!user ? (
+                      <button 
+                        onClick={loginWithGoogle}
+                        className="text-[10px] font-bold text-[var(--color-brand-accent)] uppercase tracking-wider hover:underline"
+                      >
+                        Connexion Admin
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-black/40 truncate max-w-[100px]">{user.email}</span>
+                        <button 
+                          onClick={() => auth.signOut()}
+                          className="text-[10px] font-bold text-red-500 uppercase tracking-wider hover:underline"
+                        >
+                          Déconnexion
+                        </button>
                       </div>
-
-                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
-
-                      {/* Logo Hypertexte */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Link2 size={18} className="text-amber-600" />
-                            <p className="font-bold">Logo Hypertexte</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              className="sr-only peer" 
-                              checked={logoLinkEnabled}
-                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
-                            />
-                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                          </label>
-                        </div>
-                        
-                        {logoLinkEnabled && (
-                          <div className="space-y-1.5">
-                            <p className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">URL du lien</p>
-                            <input 
-                              type="text" 
-                              value={logoLinkUrl}
-                              onChange={(e) => setLogoLinkUrl(e.target.value)}
-                              className="w-full px-4 py-3 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
-                              placeholder="https://example.com"
-                            />
-                          </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-black/40 uppercase ml-1">URL du Webhook</label>
+                      <div className="relative">
+                        <input 
+                          type="password" 
+                          value={discordWebhookUrl}
+                          onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                          disabled={!isAdmin}
+                          placeholder={isAdmin ? "https://discord.com/api/webhooks/..." : "Connectez-vous en tant qu'admin pour modifier"}
+                          className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none text-sm disabled:opacity-50"
+                        />
+                        {isAdmin && (
+                          <button 
+                            onClick={handleSaveDiscordConfig}
+                            disabled={isSavingConfig}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
+                          >
+                            {isSavingConfig ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                          </button>
                         )}
                       </div>
-
-                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
-
-                      {/* Tools & Status */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Cpu size={18} className="text-amber-600" />
-                            <p className="font-bold">Outils & Status</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4">
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-black/40 rounded-2xl border border-amber-200 dark:border-amber-800">
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-bold">Capture d'écran</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Capture de la page actuelle</p>
-                            </div>
-                            <button 
-                              onClick={handleCapturePage}
-                              disabled={isCapturing}
-                              className="px-4 py-2 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 transition-colors disabled:opacity-50"
-                            >
-                              {isCapturing ? <Loader2 size={14} className="animate-spin" /> : 'Capturer'}
-                            </button>
-                          </div>
-
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-black/40 rounded-2xl border border-amber-200 dark:border-amber-800">
-                            <div className="space-y-0.5">
-                              <p className="text-sm font-bold">Plateforme</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Capacitor Native Status</p>
-                            </div>
-                            <div className="px-3 py-1 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold">
-                              {Capacitor.getPlatform().toUpperCase()}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <p className="text-[10px] text-black/40 ml-1 italic">
+                        Cette URL est utilisée pour envoyer les feedbacks directement sur votre serveur Discord.
+                      </p>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
 
-              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
+              <div className="bg-white rounded-3xl border border-black/10 overflow-hidden">
                 <div className="p-6 space-y-6">
                   <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
                   <p className="text-sm text-black/40 -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
@@ -1040,7 +941,7 @@ export default function App() {
                       <div key={feature.id} className="space-y-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex gap-3">
-                            <div className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl text-black/40 dark:text-white/40 shrink-0">
+                            <div className="w-10 h-10 flex items-center justify-center bg-black/5 rounded-xl text-black/40 shrink-0">
                               {feature.icon}
                             </div>
                             <div className="space-y-0.5">
@@ -1048,7 +949,7 @@ export default function App() {
                                 <p className="font-bold leading-none">{feature.label}</p>
                                 {feature.id === 'ocr' && <WIPBadge />}
                               </div>
-                              <p className="text-xs text-black/40 dark:text-white/40 leading-tight">{feature.description}</p>
+                              <p className="text-xs text-black/40 leading-tight">{feature.description}</p>
                             </div>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
@@ -1058,15 +959,15 @@ export default function App() {
                               checked={(enabledFeatures as any)[feature.id]}
                               onChange={(e) => setEnabledFeatures(prev => ({ ...prev, [feature.id]: e.target.checked }))}
                             />
-                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                           </label>
                         </div>
                         
                         {feature.id === 'wordBox' && enabledFeatures.wordBox && (
-                          <div className="ml-13 p-3 bg-black/5 dark:bg-white/5 rounded-2xl flex items-center justify-between">
+                          <div className="ml-13 p-3 bg-black/5 rounded-2xl flex items-center justify-between">
                             <div className="space-y-0.5">
                               <p className="text-sm font-bold">Version simplifiée</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Masque les options de mise en page avancées.</p>
+                              <p className="text-[10px] text-black/40">Masque les options de mise en page avancées.</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer shrink-0">
                               <input 
@@ -1075,7 +976,7 @@ export default function App() {
                                 checked={enabledFeatures.wordBoxSimplified}
                                 onChange={(e) => setEnabledFeatures(prev => ({ ...prev, wordBoxSimplified: e.target.checked }))}
                               />
-                              <div className="w-9 h-5 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                             </label>
                           </div>
                         )}
@@ -1085,14 +986,91 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="text-center space-y-2 pb-8">
-                <button 
-                  onClick={handleDevClick}
-                  className="text-xs text-black/40 dark:text-white/40 font-mono hover:text-black dark:hover:text-white transition-colors"
-                >
-                  VERSION 1.0.0
-                </button>
-                <p className="text-xs text-black/40 dark:text-white/40 font-mono uppercase tracking-widest">SMART EDT © 2026</p>
+              <div className="text-center space-y-4">
+                {isDeveloperMode && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl p-6 space-y-4 text-left">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Settings size={20} />
+                      <h3 className="font-bold text-lg">Options Développeur</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold">Capture d'écran complète</p>
+                          <p className="text-xs text-black/40 dark:text-white/40">Génère une image de toute la page actuelle.</p>
+                        </div>
+                        <button 
+                          onClick={handleCapturePage}
+                          disabled={isCapturing}
+                          className="px-4 py-2 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 transition-colors disabled:opacity-50"
+                        >
+                          {isCapturing ? <Loader2 size={14} className="animate-spin" /> : 'Capturer'}
+                        </button>
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold">Logo Hypertexte</p>
+                            <p className="text-xs text-black/40 dark:text-white/40">Rend le logo cliquable vers un lien externe.</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={logoLinkEnabled}
+                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                          </label>
+                        </div>
+                        
+                        {logoLinkEnabled && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-amber-600/60 uppercase">URL du lien</p>
+                            <input 
+                              type="text" 
+                              value={logoLinkUrl}
+                              onChange={(e) => setLogoLinkUrl(e.target.value)}
+                              className="w-full px-3 py-2 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none"
+                              placeholder="https://example.com"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold">Capacitor Native</p>
+                            <p className="text-xs text-black/40 dark:text-white/40">État de la plateforme native.</p>
+                          </div>
+                          <div className="px-2 py-1 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold">
+                            {Capacitor.getPlatform().toUpperCase()}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-black/40 dark:text-white/40 italic">
+                          L'application est configurée pour Capacitor. Utilisez `npm run build:cap` pour synchroniser avec Android Studio.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <button 
+                    onClick={handleDevClick}
+                    className="text-xs text-black/40 font-mono hover:text-black transition-colors"
+                  >
+                    VERSION 1.0.0
+                  </button>
+                  <p className="text-xs text-black/40 font-mono">SMART EDT © 2026</p>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1139,7 +1117,7 @@ export default function App() {
                   setIsSendingFeedback(false);
                 }
               }}>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
+                <div className="bg-white rounded-3xl border border-black/10 p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-2 p-1 bg-black/5 rounded-xl">
                     <button 
                       type="button"
