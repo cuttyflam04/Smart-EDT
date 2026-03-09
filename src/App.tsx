@@ -627,7 +627,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12 flex flex-col items-center justify-center pb-24 md:pb-12">
+      <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12 flex flex-col items-center justify-center pb-32 md:pb-12">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && (
             <motion.div 
@@ -1202,50 +1202,50 @@ export default function App() {
         </p>
       </footer>
 
-      {/* Bottom Nav for Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/70 backdrop-blur-lg border-t border-black/10 p-2 z-40">
-        <div className="flex justify-around">
+      {/* Bottom Nav for Mobile - Floating Style */}
+      <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-black/5 dark:border-white/10 shadow-2xl rounded-[2rem] p-2 z-40">
+        <div className="flex justify-around items-center h-14">
           <button 
             onClick={() => setActiveTab('home')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
-              activeTab === 'home' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
+              activeTab === 'home' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
             )}
           >
-            <Calendar size={20} />
+            <Calendar size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Accueil</span>
           </button>
           <button 
             onClick={() => setActiveTab('account')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all relative",
-              activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300 relative",
+              activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
             )}
           >
-            <User size={20} />
+            <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Compte</span>
-            <div className="absolute top-1 right-1">
+            <div className="absolute -top-1 -right-1">
               <WIPBadge />
             </div>
           </button>
           <button 
             onClick={() => setActiveTab('feedback')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
-              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
+              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
             )}
           >
-            <MessageSquarePlus size={20} />
+            <MessageSquarePlus size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Feedback</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
             className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-lg w-16 transition-all",
-              activeTab === 'settings' ? "bg-[var(--color-brand-accent)] text-white" : "text-black/40 hover:text-black"
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
+              activeTab === 'settings' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
             )}
           >
-            <Settings size={20} />
+            <Settings size={22} strokeWidth={activeTab === 'settings' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Réglages</span>
           </button>
         </div>
