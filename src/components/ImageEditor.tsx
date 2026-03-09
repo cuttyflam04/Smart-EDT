@@ -963,38 +963,38 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       </div>
       
       {enabledFeatures.zoom && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-[var(--surface)]/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border border-[var(--border)]">
           <button 
             onClick={() => setScale(s => Math.max(0.1, s - 0.1))} 
-            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center hover:bg-[var(--border)] rounded-full transition-colors"
             title="Zoom arrière"
           >
             <ZoomOut size={18} />
           </button>
           
           <div className="flex flex-col items-center px-2 min-w-[60px]">
-            <span className="font-mono text-xs font-bold">{Math.round(scale * 100)}%</span>
+            <span className="font-mono text-xs font-bold text-[var(--text)]">{Math.round(scale * 100)}%</span>
           </div>
 
           <button 
             onClick={() => setScale(s => Math.min(10, s + 0.2))} 
-            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center hover:bg-[var(--border)] rounded-full transition-colors"
             title="Zoom avant"
           >
             <ZoomIn size={18} />
           </button>
 
-          <div className="w-px h-4 bg-black/10 mx-1" />
+          <div className="w-px h-4 bg-[var(--border)] mx-1" />
 
           <button 
             onClick={resetView} 
-            className="w-8 h-8 flex items-center justify-center hover:bg-black/5 rounded-full transition-colors"
+            className="w-8 h-8 flex items-center justify-center hover:bg-[var(--border)] rounded-full transition-colors"
             title="Réinitialiser la vue"
           >
             <Maximize size={18} />
           </button>
 
-          <div className="w-px h-4 bg-black/10 mx-1" />
+          <div className="w-px h-4 bg-[var(--border)] mx-1" />
 
           <button 
             onClick={() => setIsRotated(!isRotated)} 
