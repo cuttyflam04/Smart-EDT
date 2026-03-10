@@ -21,7 +21,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { performOCR } from './services/ocrService';
-import { auth, db, loginWithGoogle, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, loginWithGoogle, handleAuthRedirect, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -145,6 +145,10 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
     });
+    
+    // Handle redirect result for mobile
+    handleAuthRedirect();
+    
     return () => unsubscribe();
   }, []);
 
@@ -892,12 +896,17 @@ export default function App() {
                             <p className="font-bold">Configuration Discord</p>
                           </div>
                           {!user ? (
-                            <button 
-                              onClick={loginWithGoogle}
-                              className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline"
-                            >
-                              Connexion Admin
-                            </button>
+                            <div className="flex flex-col items-end gap-1">
+                              <button 
+                                onClick={loginWithGoogle}
+                                className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline"
+                              >
+                                Connexion Admin
+                              </button>
+                              <p className="text-[8px] text-[var(--text-secondary)] opacity-60 max-w-[120px] text-right">
+                                Si le popup est bloqué, réessayez pour utiliser la redirection.
+                              </p>
+                            </div>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-bold text-amber-600/60 truncate max-w-[100px]">{user.email}</span>

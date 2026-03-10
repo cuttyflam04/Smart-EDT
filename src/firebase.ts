@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, onSnapshot, getDocFromServer } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, getDocFromServer, serverTimestamp } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
@@ -75,10 +75,35 @@ testConnection();
 
 export const loginWithGoogle = async () => {
   try {
+    // Try popup first
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
-    console.error("Login error:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Login error (popup):", error);
+    
+    // If popup is blocked or fails on mobile, try redirect
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectError) {
+        console.error("Login error (redirect):", redirectError);
+        throw redirectError;
+      }
+    } else {
+      throw error;
+    }
   }
+};
+
+// Handle redirect result
+export const handleAuthRedirect = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result) {
+      return result.user;
+    }
+  } catch (error) {
+    console.error("Redirect result error:", error);
+  }
+  return null;
 };
