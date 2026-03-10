@@ -22,19 +22,25 @@
 
 @layer base {
   :root {
-    --bg: var(--color-brand-bg);
-    --text: var(--color-brand-primary);
-    --surface: var(--color-brand-surface);
-    --border: var(--color-brand-border);
-    --accent: var(--color-brand-accent);
+    --bg: #FFFFFF;
+    --text: #141414;
+    --text-secondary: #555555;
+    --surface: #F8F8F8;
+    --border: rgba(20, 20, 20, 0.1);
+    --accent: #F27D26;
+    --nav-bg: rgba(255, 255, 255, 0.85);
+    --overlay: rgba(0, 0, 0, 0.4);
   }
 
   .dark {
-    --bg: var(--color-dark-bg);
-    --text: var(--color-dark-primary);
-    --surface: var(--color-dark-surface);
-    --border: var(--color-dark-border);
-    --accent: var(--color-dark-accent);
+    --bg: #0F0F0F;
+    --text: #F5F5F5;
+    --text-secondary: #A0A0A0;
+    --surface: #1A1A1A;
+    --border: rgba(245, 245, 245, 0.12);
+    --accent: #F27D26;
+    --nav-bg: rgba(20, 20, 20, 0.85);
+    --overlay: rgba(0, 0, 0, 0.8);
   }
 
   body {
@@ -44,26 +50,12 @@
   }
 }
 
-/* Global Dark Mode Overrides */
+/* Global Dark Mode Overrides - Simplified and safer */
 .dark .bg-white { background-color: var(--surface) !important; }
-.dark .bg-white\/40 { background-color: rgba(255, 255, 255, 0.05) !important; }
-.dark .bg-white\/50 { background-color: rgba(255, 255, 255, 0.05) !important; }
-.dark .bg-white\/70 { background-color: rgba(0, 0, 0, 0.7) !important; }
-.dark .bg-white\/90 { background-color: rgba(0, 0, 0, 0.8) !important; backdrop-filter: blur(12px); }
-
 .dark .text-black { color: var(--text) !important; }
-.dark .text-black\/40 { color: rgba(255, 255, 255, 0.4) !important; }
-.dark .text-black\/60 { color: rgba(255, 255, 255, 0.6) !important; }
-.dark .text-black\/20 { color: rgba(255, 255, 255, 0.2) !important; }
 
 .dark .bg-black { background-color: #000000 !important; }
 .dark .bg-black.rounded-full { background-color: var(--accent) !important; }
-.dark .bg-black\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
-.dark .bg-black\/10 { background-color: rgba(255, 255, 255, 0.1) !important; }
-.dark .bg-black\/20 { background-color: rgba(255, 255, 255, 0.15) !important; }
-
-.dark .border-black\/10 { border-color: var(--border) !important; }
-.dark .border-black\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
 
 .dark .bg-gray-200 { background-color: rgba(255, 255, 255, 0.1) !important; }
 

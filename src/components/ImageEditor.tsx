@@ -725,7 +725,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
 
   return (
     <div className={cn(
-      "fixed z-50 bg-black/90 flex flex-col",
+      "fixed z-50 bg-[var(--bg)] flex flex-col",
       !isRotated && "inset-0",
       isRotated && "origin-center"
     )}
@@ -740,15 +740,15 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
     } : {}}
     >
       {/* Toolbar */}
-      <div className="h-16 bg-white flex items-center justify-between px-4 shadow-md overflow-x-auto">
+      <div className="h-16 bg-[var(--surface)] border-b border-[var(--border)] flex items-center justify-between px-4 z-10">
         <div className="flex items-center gap-2 min-w-max">
-          <button onClick={onClose} className="p-2 hover:bg-black/5 rounded-full transition-colors" title="Fermer">
+          <button onClick={onClose} className="p-2 hover:bg-[var(--border)] rounded-full transition-colors" title="Fermer">
             <X size={20} />
           </button>
           <button onClick={clearAll} className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors" title="Tout effacer">
             <RotateCw size={20} />
           </button>
-          <div className="h-6 w-px bg-black/10 mx-2" />
+          <div className="h-6 w-px bg-[var(--border)] mx-2" />
           
           {enabledFeatures.removeText && (
             <>
@@ -756,7 +756,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 onClick={() => { setTool('remove-text'); setPrevTool('remove-text'); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-                  (tool === 'remove-text' || tool === 'pipette') ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                  (tool === 'remove-text' || tool === 'pipette') ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
                 )}
                 title="Effacer Texte"
               >
@@ -765,12 +765,12 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               </button>
 
               {(tool === 'remove-text' || tool === 'pipette') && (
-                <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-2">
+                <div className="flex items-center gap-2 px-2 py-1 bg-[var(--border)] rounded-lg ml-2">
                   <button
                     onClick={() => setTool(tool === 'pipette' ? 'remove-text' : 'pipette')}
                     className={cn(
                       "p-1.5 rounded-md transition-colors",
-                      tool === 'pipette' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/10"
+                      tool === 'pipette' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
                     )}
                     title="Pipette (Prélever couleur)"
                   >
@@ -804,7 +804,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               onClick={() => { setTool('wand'); setPrevTool('wand'); }}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-                tool === 'wand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                tool === 'wand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
               )}
               title="Effacer Couleur"
             >
@@ -818,7 +818,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               onClick={() => { setTool('text-box'); setPrevTool('text-box'); }}
               className={cn(
                 "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-                tool === 'text-box' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                tool === 'text-box' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
               )}
               title="Word Box (Boîte de texte)"
             >
@@ -833,7 +833,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 onClick={() => { setTool('brush'); setPrevTool('brush'); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-                  tool === 'brush' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                  tool === 'brush' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
                 )}
                 title="Gomme (Pinceau)"
               >
@@ -845,7 +845,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 onClick={() => { setTool('eraser'); setPrevTool('eraser'); }}
                 className={cn(
                   "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-                  tool === 'eraser' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+                  tool === 'eraser' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
                 )}
                 title="Zone Blanche (Rectangle)"
               >
@@ -854,8 +854,8 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
               </button>
 
               {tool === 'brush' && (
-                <div className="flex items-center gap-2 px-2 py-1 bg-black/5 rounded-lg ml-1">
-                  <span className="text-[10px] font-bold text-black/40 uppercase">Taille</span>
+                <div className="flex items-center gap-2 px-2 py-1 bg-[var(--border)] rounded-lg ml-1">
+                  <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Taille</span>
                   <input 
                     type="range" 
                     min="5" max="100" 
@@ -873,7 +873,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
             onClick={() => { setTool('hand'); setPrevTool('hand'); }}
             className={cn(
               "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-              tool === 'hand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+              tool === 'hand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
             )}
             title="Déplacer (Main)"
           >
@@ -885,16 +885,16 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
         <div className="flex items-center gap-2 min-w-max ml-4">
           {enabledFeatures.undoRedo && (
             <>
-              <button onClick={undo} disabled={historyIndex <= 0} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Annuler">
+              <button onClick={undo} disabled={historyIndex <= 0} className="p-2 hover:bg-[var(--border)] rounded-full transition-colors disabled:opacity-30" title="Annuler">
                 <Undo size={20} />
               </button>
-              <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-2 hover:bg-black/5 rounded-full transition-colors disabled:opacity-30" title="Rétablir">
+              <button onClick={redo} disabled={historyIndex >= history.length - 1} className="p-2 hover:bg-[var(--border)] rounded-full transition-colors disabled:opacity-30" title="Rétablir">
                 <Redo size={20} />
               </button>
-              <div className="h-6 w-px bg-black/10 mx-2" />
+              <div className="h-6 w-px bg-[var(--border)] mx-2" />
             </>
           )}
-          <button onClick={handleSave} className="flex items-center gap-2 px-4 py-1.5 bg-black text-white rounded-lg font-medium hover:bg-black/80 transition-colors">
+          <button onClick={handleSave} className="flex items-center gap-2 px-4 py-1.5 bg-[var(--text)] text-[var(--bg)] rounded-lg font-medium hover:opacity-80 transition-colors">
             <Download size={18} />
             <span className="hidden sm:inline">Terminer</span>
           </button>
@@ -904,7 +904,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       {/* Canvas Area */}
       <div 
         ref={containerRef} 
-        className="flex-1 overflow-hidden flex items-center justify-center p-4 relative bg-black/5 touch-none"
+        className="flex-1 overflow-hidden flex items-center justify-center p-4 relative bg-[var(--bg)] touch-none"
         onWheel={handleWheel}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
@@ -1010,29 +1010,29 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
       )}
 
       {isEnteringText && (
-        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 z-[60] bg-[var(--overlay)] flex items-center justify-center p-4">
+          <div className="bg-[var(--bg)] rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold">Word Box</h3>
-                <button onClick={() => setIsEnteringText(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                <button onClick={() => setIsEnteringText(false)} className="p-2 hover:bg-[var(--border)] rounded-full transition-colors">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-4">
                 {/* Text Settings */}
-                <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                <div className="space-y-3 p-4 bg-[var(--surface)] rounded-2xl">
                   <div className="flex items-center gap-2 mb-1">
-                    <Type size={16} className="text-black/40" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-black/40">Texte</span>
+                    <Type size={16} className="text-[var(--text-secondary)]" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Texte</span>
                   </div>
                   <div className="space-y-2">
                     <textarea 
                       value={boxText}
                       onChange={(e) => setBoxText(e.target.value)}
                       placeholder="Tapez votre texte ici..."
-                      className="w-full px-4 py-3 bg-white rounded-xl border border-black/5 focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[100px] resize-none"
+                      className="w-full px-4 py-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[100px] resize-none"
                       autoFocus
                     />
                   </div>
@@ -1040,34 +1040,34 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                     <>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Taille</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Taille</label>
                           <input 
                             type="number" 
                             value={boxFontSize}
                             onChange={(e) => setBoxFontSize(parseInt(e.target.value))}
-                            className="w-full px-3 py-2 bg-white rounded-lg border border-black/5 outline-none"
+                            className="w-full px-3 py-2 bg-[var(--bg)] rounded-lg border border-[var(--border)] outline-none"
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Couleur</label>
                           <input 
                             type="color" 
                             value={boxColor}
                             onChange={(e) => setBoxColor(e.target.value)}
-                            className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                            className="w-full h-9 p-1 bg-[var(--bg)] rounded-lg border border-[var(--border)] cursor-pointer"
                           />
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Alignement</label>
-                        <div className="grid grid-cols-3 gap-1 p-1 bg-white rounded-lg border border-black/5">
+                        <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Alignement</label>
+                        <div className="grid grid-cols-3 gap-1 p-1 bg-[var(--bg)] rounded-lg border border-[var(--border)]">
                           {(['left', 'center', 'right'] as const).map((align) => (
                             <button
                               key={align}
                               onClick={() => setBoxAlignment(align)}
                               className={cn(
                                 "flex items-center justify-center py-1.5 rounded transition-colors",
-                                boxAlignment === align ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5 text-black/40"
+                                boxAlignment === align ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)] text-[var(--text-secondary)]"
                               )}
                             >
                               {align === 'left' && <AlignLeft size={18} />}
@@ -1084,10 +1084,10 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                 {!enabledFeatures.wordBoxSimplified && (
                   <>
                     {/* Box Settings */}
-                    <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                    <div className="space-y-3 p-4 bg-[var(--surface)] rounded-2xl">
                       <div className="flex items-center gap-2 mb-1">
-                        <Square size={16} className="text-black/40" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-black/40">Boîte</span>
+                        <Square size={16} className="text-[var(--text-secondary)]" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Boîte</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Afficher le fond</span>
@@ -1105,16 +1105,16 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                         <div className="space-y-3 pt-2">
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur fond</label>
+                              <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Couleur fond</label>
                               <input 
                                 type="color" 
                                 value={boxBgColor}
                                 onChange={(e) => setBoxBgColor(e.target.value)}
-                                className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                                className="w-full h-9 p-1 bg-[var(--bg)] rounded-lg border border-[var(--border)] cursor-pointer"
                               />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Opacité ({Math.round(boxBgOpacity * 100)}%)</label>
+                              <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Opacité ({Math.round(boxBgOpacity * 100)}%)</label>
                               <input 
                                 type="range" 
                                 min="0" max="1" step="0.1"
@@ -1128,7 +1128,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                       )}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Padding ({boxPadding}px)</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Padding ({boxPadding}px)</label>
                           <input 
                             type="range" 
                             min="0" max="50" step="1"
@@ -1138,7 +1138,7 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Arrondi ({boxBorderRadius}px)</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Arrondi ({boxBorderRadius}px)</label>
                           <input 
                             type="range" 
                             min="0" max="50" step="1"
@@ -1151,14 +1151,14 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                     </div>
 
                     {/* Border Settings */}
-                    <div className="space-y-3 p-4 bg-black/5 rounded-2xl">
+                    <div className="space-y-3 p-4 bg-[var(--surface)] rounded-2xl">
                       <div className="flex items-center gap-2 mb-1">
-                        <Maximize2 size={16} className="text-black/40" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-black/40">Bordure</span>
+                        <Maximize2 size={16} className="text-[var(--text-secondary)]" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Bordure</span>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Épaisseur ({boxBorderWidth}px)</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Épaisseur ({boxBorderWidth}px)</label>
                           <input 
                             type="range" 
                             min="0" max="10" step="1"
@@ -1168,12 +1168,12 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold uppercase text-black/40 ml-1">Couleur bordure</label>
+                          <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)] ml-1">Couleur bordure</label>
                           <input 
                             type="color" 
                             value={boxBorderColor}
                             onChange={(e) => setBoxBorderColor(e.target.value)}
-                            className="w-full h-9 p-1 bg-white rounded-lg border border-black/5 cursor-pointer"
+                            className="w-full h-9 p-1 bg-[var(--bg)] rounded-lg border border-[var(--border)] cursor-pointer"
                             disabled={boxBorderWidth === 0}
                           />
                         </div>
@@ -1191,13 +1191,13 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
                       Keyboard.hide().catch(() => {});
                     }
                   }}
-                  className="flex-1 py-3 bg-black/5 hover:bg-black/10 rounded-2xl font-bold transition-all"
+                  className="flex-1 py-3 bg-[var(--surface)] hover:bg-[var(--border)] rounded-2xl font-bold transition-all"
                 >
                   Annuler
                 </button>
                 <button 
                   onClick={commitTextBox}
-                  className="flex-1 py-3 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-95 transition-all"
+                  className="flex-1 py-3 bg-[var(--text)] text-[var(--bg)] rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-95 transition-all"
                 >
                   <Check size={18} />
                   Valider

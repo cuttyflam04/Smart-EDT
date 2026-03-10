@@ -45,7 +45,7 @@ const Logo = ({ showText = false }: { showText?: boolean }) => (
     <div className="relative w-12 h-12 flex items-center justify-center">
       <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm overflow-visible">
         {/* Extra sketchy background lines */}
-        <path d="M20,15 L25,10 M85,30 L90,35 M20,85 L25,90" stroke="currentColor" strokeWidth="1" className="text-black/20 dark:text-white/20" />
+        <path d="M20,15 L25,10 M85,30 L90,35 M20,85 L25,90" stroke="currentColor" strokeWidth="1" className="text-[var(--border)]" />
         
         {/* Hand-drawn paper effect with more "sketchy" feel */}
         <path 
@@ -65,7 +65,7 @@ const Logo = ({ showText = false }: { showText?: boolean }) => (
           stroke="currentColor" 
           strokeWidth="1" 
           strokeLinecap="round" 
-          className="text-black/10 dark:text-white/10"
+          className="text-[var(--border)]"
         />
 
         {/* Folded corner */}
@@ -287,7 +287,7 @@ export default function App() {
       if (Capacitor.isNativePlatform()) {
         try {
           await StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light });
-          await StatusBar.setBackgroundColor({ color: isDarkMode ? '#0F0F0F' : '#E4E3E0' });
+          await StatusBar.setBackgroundColor({ color: isDarkMode ? '#0F0F0F' : '#FFFFFF' });
           await SplashScreen.hide();
         } catch (e) {
           console.warn('Capacitor plugins not available:', e);
@@ -598,7 +598,7 @@ export default function App() {
                 className="p-2 hover:bg-black/5 rounded-full transition-colors hidden md:block"
                 title="Dépôt d'idées & Bugs"
               >
-                <MessageSquarePlus size={20} className="text-black/40" />
+                <MessageSquarePlus size={20} className="text-[var(--text-secondary)]" />
               </button>
               <button 
                 onClick={() => setActiveTab('settings')}
@@ -639,7 +639,7 @@ export default function App() {
                         setPreview(null);
                         setProcessedPreview(null);
                       }} 
-                      className="flex items-center gap-2 px-4 py-2 bg-black/5 hover:bg-black/10 rounded-xl font-medium transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-[var(--surface)] hover:bg-[var(--border)] rounded-xl font-medium transition-colors"
                     >
                       <X size={18} />
                       Changer de fichier
@@ -685,7 +685,7 @@ export default function App() {
                     <button
                       onClick={handleOpenEditor}
                       disabled={isProcessing}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-black text-white hover:brightness-95 transition-all disabled:bg-black/20 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--text)] text-[var(--bg)] hover:opacity-90 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                     >
                       {isProcessing ? (
                         <>
@@ -704,10 +704,10 @@ export default function App() {
                       <button
                         onClick={handleScanText}
                         disabled={true}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-white text-black border border-black/10 hover:bg-black/5 transition-all disabled:opacity-50 relative overflow-hidden group"
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
                       >
-                        <Scan size={20} className="text-black/40" />
-                        <span className="text-black/40">Scanner le texte</span>
+                        <Scan size={20} className="text-[var(--text-secondary)]" />
+                        <span className="text-[var(--text-secondary)]">Scanner le texte</span>
                         <div className="absolute top-1 right-1">
                           <WIPBadge />
                         </div>
@@ -761,11 +761,11 @@ export default function App() {
                   <input {...getInputProps()} />
                   <div className="text-center space-y-4">
                     <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto">
-                      <Upload className="text-black/40" />
+                      <Upload className="text-[var(--text-secondary)]" />
                     </div>
                     <div>
                       <p className="font-medium">Glissez votre PDF ou Image ici</p>
-                      <p className="text-sm text-black/40">PNG, JPG ou PDF jusqu'à 10MB</p>
+                      <p className="text-sm text-[var(--text-secondary)]">PNG, JPG ou PDF jusqu'à 10MB</p>
                     </div>
                   </div>
                 </div>
@@ -791,7 +791,7 @@ export default function App() {
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold">Espace Compte</h2>
-                <p className="text-black/60">
+                <p className="text-[var(--text-secondary)]">
                   Nous travaillons sur une synchronisation cloud pour vos emplois du temps !
                 </p>
               </div>
@@ -807,7 +807,7 @@ export default function App() {
 
               <button 
                 onClick={() => setActiveTab('home')}
-                className="w-full py-4 bg-black/5 text-black/60 rounded-2xl font-bold hover:bg-black/10 transition-all"
+                className="w-full py-4 bg-[var(--surface)] text-[var(--text-secondary)] rounded-2xl font-bold hover:bg-[var(--border)] transition-all"
               >
                 Retour à l'accueil
               </button>
@@ -824,7 +824,7 @@ export default function App() {
             >
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-bold">Réglages</h2>
-                <p className="text-sm text-black/40">Personnalisez votre expérience Smart EDT.</p>
+                <p className="text-sm text-[var(--text-secondary)]">Personnalisez votre expérience Smart EDT.</p>
               </div>
               
               <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
@@ -832,7 +832,7 @@ export default function App() {
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="font-bold">Rotation automatique</p>
-                      <p className="text-sm text-black/40">Pivote l'interface d'édition sur mobile</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Pivote l'interface d'édition sur mobile</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -845,12 +845,12 @@ export default function App() {
                     </label>
                   </div>
 
-                  <div className="h-px bg-black/5 dark:bg-white/5" />
+                  <div className="h-px bg-[var(--border)]" />
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="font-bold">Mode sombre</p>
-                      <p className="text-sm text-black/40">Interface plus sombre pour la nuit</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Interface plus sombre pour la nuit</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -920,7 +920,7 @@ export default function App() {
                               onChange={(e) => setDiscordWebhookUrl(e.target.value)}
                               disabled={!isAdmin}
                               placeholder={isAdmin ? "https://discord.com/api/webhooks/..." : "Connectez-vous pour modifier"}
-                              className="w-full px-4 py-3 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
                             />
                             {isAdmin && (
                               <button 
@@ -962,7 +962,7 @@ export default function App() {
                               type="text" 
                               value={logoLinkUrl}
                               onChange={(e) => setLogoLinkUrl(e.target.value)}
-                              className="w-full px-4 py-3 bg-white dark:bg-black/40 border border-amber-200 dark:border-amber-800 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
                               placeholder="https://example.com"
                             />
                           </div>
@@ -981,10 +981,10 @@ export default function App() {
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-black/40 rounded-2xl border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
                             <div className="space-y-0.5">
                               <p className="text-sm font-bold">Capture d'écran</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Capture de la page actuelle</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Capture de la page actuelle</p>
                             </div>
                             <button 
                               onClick={handleCapturePage}
@@ -995,10 +995,10 @@ export default function App() {
                             </button>
                           </div>
 
-                          <div className="flex items-center justify-between p-3 bg-white dark:bg-black/40 rounded-2xl border border-amber-200 dark:border-amber-800">
+                          <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
                             <div className="space-y-0.5">
                               <p className="text-sm font-bold">Plateforme</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Capacitor Native Status</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Capacitor Native Status</p>
                             </div>
                             <div className="px-3 py-1 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold">
                               {Capacitor.getPlatform().toUpperCase()}
@@ -1014,7 +1014,7 @@ export default function App() {
               <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
                 <div className="p-6 space-y-6">
                   <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
-                  <p className="text-sm text-black/40 -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
+                  <p className="text-sm text-[var(--text-secondary)] -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
                   
                   <div className="space-y-6">
                     {[
@@ -1029,7 +1029,7 @@ export default function App() {
                       <div key={feature.id} className="space-y-3">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex gap-3">
-                            <div className="w-10 h-10 flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-xl text-black/40 dark:text-white/40 shrink-0">
+                            <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface)] rounded-xl text-[var(--text-secondary)] shrink-0">
                               {feature.icon}
                             </div>
                             <div className="space-y-0.5">
@@ -1037,7 +1037,7 @@ export default function App() {
                                 <p className="font-bold leading-none">{feature.label}</p>
                                 {feature.id === 'ocr' && <WIPBadge />}
                               </div>
-                              <p className="text-xs text-black/40 dark:text-white/40 leading-tight">{feature.description}</p>
+                              <p className="text-xs text-[var(--text-secondary)] leading-tight">{feature.description}</p>
                             </div>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
@@ -1052,10 +1052,10 @@ export default function App() {
                         </div>
                         
                         {feature.id === 'wordBox' && enabledFeatures.wordBox && (
-                          <div className="ml-13 p-3 bg-black/5 dark:bg-white/5 rounded-2xl flex items-center justify-between">
+                          <div className="ml-13 p-3 bg-[var(--surface)] rounded-2xl flex items-center justify-between">
                             <div className="space-y-0.5">
                               <p className="text-sm font-bold">Version simplifiée</p>
-                              <p className="text-[10px] text-black/40 dark:text-white/40">Masque les options de mise en page avancées.</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Masque les options de mise en page avancées.</p>
                             </div>
                             <label className="relative inline-flex items-center cursor-pointer shrink-0">
                               <input 
@@ -1097,11 +1097,11 @@ export default function App() {
                   onTouchEnd={() => {
                     if (longPressTimer.current) clearTimeout(longPressTimer.current);
                   }}
-                  className="text-xs text-black/40 dark:text-white/40 font-mono hover:text-black dark:hover:text-white transition-colors select-none"
+                  className="text-xs text-[var(--text-secondary)] font-mono hover:text-[var(--text)] transition-colors select-none"
                 >
                   VERSION 1.0.0
                 </button>
-                <p className="text-xs text-black/40 dark:text-white/40 font-mono uppercase tracking-widest">SMART EDT © 2026</p>
+                <p className="text-xs text-[var(--text-secondary)] font-mono uppercase tracking-widest">SMART EDT © 2026</p>
               </div>
             </motion.div>
           )}
@@ -1116,7 +1116,7 @@ export default function App() {
             >
               <div className="text-center space-y-2">
                 <h2 className="text-2xl font-bold">Dépôt d'idées & Bugs</h2>
-                <p className="text-black/60">Aidez-nous à améliorer Smart EDT en partageant vos retours.</p>
+                <p className="text-[var(--text-secondary)]">Aidez-nous à améliorer Smart EDT en partageant vos retours.</p>
               </div>
 
               <form className="space-y-4" onSubmit={async (e) => {
@@ -1149,16 +1149,16 @@ export default function App() {
                 }
               }}>
                 <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-black/5 rounded-xl">
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--surface)] rounded-xl">
                     <button 
                       type="button"
                       onClick={() => setFeedbackType('idea')}
                       className={cn(
                         "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
-                        feedbackType === 'idea' ? "bg-white shadow-sm" : "text-black/40 hover:text-black"
+                        feedbackType === 'idea' ? "bg-white shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
                       )}
                     >
-                      <Lightbulb size={18} className={feedbackType === 'idea' ? "text-amber-500" : "text-black/20"} />
+                      <Lightbulb size={18} className={feedbackType === 'idea' ? "text-amber-500" : "opacity-40"} />
                       Idée
                     </button>
                     <button 
@@ -1166,10 +1166,10 @@ export default function App() {
                       onClick={() => setFeedbackType('bug')}
                       className={cn(
                         "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
-                        feedbackType === 'bug' ? "bg-white shadow-sm" : "text-black/40 hover:text-black"
+                        feedbackType === 'bug' ? "bg-white shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
                       )}
                     >
-                      <Bug size={18} className={feedbackType === 'bug' ? "text-red-500" : "text-black/20"} />
+                      <Bug size={18} className={feedbackType === 'bug' ? "text-red-500" : "opacity-40"} />
                       Bug
                     </button>
                   </div>
@@ -1181,7 +1181,7 @@ export default function App() {
                       value={feedbackTitle}
                       onChange={(e) => setFeedbackTitle(e.target.value)}
                       placeholder="En quelques mots..."
-                      className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none"
+                      className="w-full px-4 py-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none"
                       required
                     />
                   </div>
@@ -1192,7 +1192,7 @@ export default function App() {
                       value={feedbackDescription}
                       onChange={(e) => setFeedbackDescription(e.target.value)}
                       placeholder="Détaillez votre idée ou le bug rencontré..."
-                      className="w-full px-4 py-3 bg-black/5 rounded-xl border-none focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[120px] resize-none"
+                      className="w-full px-4 py-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[120px] resize-none"
                       required
                     />
                   </div>
@@ -1228,19 +1228,19 @@ export default function App() {
 
       {/* Footer for Desktop */}
       <footer className="p-8 border-t border-black/10 text-center hidden md:block">
-        <p className="text-sm text-black/40 font-mono">
+        <p className="text-sm text-[var(--text-secondary)] font-mono">
           SMART EDT © 2026
         </p>
       </footer>
 
       {/* Bottom Nav for Mobile - Floating Style */}
-      <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-black/5 dark:border-white/10 shadow-2xl rounded-[2rem] p-2 z-40">
+      <nav className="md:hidden fixed bottom-6 left-4 right-4 bg-[var(--nav-bg)] backdrop-blur-xl border border-[var(--border)] shadow-2xl rounded-[2rem] p-2 z-40">
         <div className="flex justify-around items-center h-14">
           <button 
             onClick={() => setActiveTab('home')}
             className={cn(
               "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
-              activeTab === 'home' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+              activeTab === 'home' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
             <Calendar size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
@@ -1250,7 +1250,7 @@ export default function App() {
             onClick={() => setActiveTab('account')}
             className={cn(
               "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300 relative",
-              activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+              activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
             <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
@@ -1263,7 +1263,7 @@ export default function App() {
             onClick={() => setActiveTab('feedback')}
             className={cn(
               "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
-              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
             <MessageSquarePlus size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
@@ -1273,7 +1273,7 @@ export default function App() {
             onClick={() => setActiveTab('settings')}
             className={cn(
               "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
-              activeTab === 'settings' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-black/40 dark:text-white/40 hover:text-black dark:hover:text-white"
+              activeTab === 'settings' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
             <Settings size={22} strokeWidth={activeTab === 'settings' ? 2.5 : 2} />
