@@ -35,7 +35,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const BASE_URL = window.location.origin === 'https://localhost' 
-  ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
+  ? 'https://ais-pre-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
 
 const WIPBadge = ({ className }: { className?: string }) => (
@@ -889,6 +889,14 @@ export default function App() {
                       Quitter le mode admin
                     </button>
                   </div>
+
+                  {window.location.origin === 'https://localhost' && (
+                    <div className="mx-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-[10px] font-bold">
+                      ⚠️ Attention : Vous utilisez l'application via "localhost". 
+                      La connexion Google risque de ne pas fonctionner. 
+                      Utilisez l'URL officielle (.run.app) pour vous connecter.
+                    </div>
+                  )}
 
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
                     <div className="p-6 space-y-8">

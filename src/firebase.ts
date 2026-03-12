@@ -74,30 +74,40 @@ async function testConnection() {
 testConnection();
 
 export const loginWithGoogle = async () => {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.location.origin === 'https://localhost';
+  
   try {
-    // Force redirect on mobile/WebView to avoid "The requested action is invalid" errors
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.location.origin === 'https://localhost';
+    console.log("Starting login process...", { isMobile, origin: window.location.origin });
     
     if (isMobile) {
+      console.log("Mobile detected, using redirect...");
       await signInWithRedirect(auth, googleProvider);
       return null;
     }
 
     // Try popup for desktop
+    console.log("Desktop detected, using popup...");
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
-    console.error("Login error:", error);
+    console.error("Login error details:", {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     
-    // Fallback to redirect if popup fails
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+    if (error.code === 'auth/unauthorized-domain') {
+      alert(`Erreur : Le domaine ${window.location.origin} n'est pas autorisé dans la console Firebase. Veuillez utiliser l'URL .run.app officielle.`);
+    } else if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
+      console.log("Popup blocked/closed, falling back to redirect...");
       try {
         await signInWithRedirect(auth, googleProvider);
       } catch (redirectError) {
-        console.error("Login error (redirect):", redirectError);
+        console.error("Login error (redirect fallback):", redirectError);
         throw redirectError;
       }
     } else {
+      alert(`Erreur de connexion (${error.code}) : ${error.message}`);
       throw error;
     }
   }
@@ -108,10 +118,14 @@ export const handleAuthRedirect = async () => {
   try {
     const result = await getRedirectResult(auth);
     if (result) {
+      console.log("Redirect login successful:", result.user.email);
       return result.user;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Redirect result error:", error);
+    if (error.code === 'auth/unauthorized-domain') {
+      console.error("Domain not authorized for redirect:", window.location.origin);
+    }
   }
   return null;
 };
