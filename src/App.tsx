@@ -34,7 +34,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const BASE_URL = window.location.origin === 'https://localhost' 
+const BASE_URL = window.location.origin.includes('localhost') 
   ? 'https://ais-pre-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
 
@@ -890,14 +890,6 @@ export default function App() {
                     </button>
                   </div>
 
-                  {window.location.origin === 'https://localhost' && (
-                    <div className="mx-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400 text-[10px] font-bold">
-                      ⚠️ Attention : Vous utilisez l'application via "localhost". 
-                      La connexion Google risque de ne pas fonctionner. 
-                      Utilisez l'URL officielle (.run.app) pour vous connecter.
-                    </div>
-                  )}
-
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
                     <div className="p-6 space-y-8">
                       {/* Discord Config */}
@@ -1164,13 +1156,19 @@ export default function App() {
                 setIsSendingFeedback(true);
                 try {
                   const apiPath = `${BASE_URL}/api/feedback`;
+                  console.log('Sending feedback to:', apiPath);
                   const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       type: feedbackType,
                       title: feedbackTitle,
-                      description: feedbackDescription
+                      description: feedbackDescription,
+                      metadata: {
+                        origin: window.location.origin,
+                        userAgent: navigator.userAgent,
+                        timestamp: new Date().toISOString()
+                      }
                     })
                   });
                   
@@ -1180,12 +1178,13 @@ export default function App() {
                     setFeedbackDescription('');
                     setActiveTab('home');
                   } else {
-                    const errorData = await response.json();
-                    alert(`Erreur lors de l'envoi : ${errorData.error || 'Erreur inconnue'}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Server error:', errorData);
+                    alert(`Erreur lors de l'envoi (${response.status}) : ${errorData.error || 'Erreur serveur'}`);
                   }
                 } catch (error) {
-                  console.error('Feedback error:', error);
-                  alert('Une erreur réseau est survenue. Vérifiez votre connexion.');
+                  console.error('Feedback network error:', error);
+                  alert(`Erreur de connexion : Impossible de joindre le serveur. (${error instanceof Error ? error.message : 'Erreur inconnue'})`);
                 } finally {
                   setIsSendingFeedback(false);
                 }
