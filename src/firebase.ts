@@ -75,14 +75,22 @@ testConnection();
 
 export const loginWithGoogle = async () => {
   try {
-    // Try popup first
+    // Force redirect on mobile/WebView to avoid "The requested action is invalid" errors
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.location.origin === 'https://localhost';
+    
+    if (isMobile) {
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
+
+    // Try popup for desktop
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
-    console.error("Login error (popup):", error);
+    console.error("Login error:", error);
     
-    // If popup is blocked or fails on mobile, try redirect
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    // Fallback to redirect if popup fails
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user') {
       try {
         await signInWithRedirect(auth, googleProvider);
       } catch (redirectError) {

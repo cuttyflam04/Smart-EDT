@@ -34,6 +34,10 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const BASE_URL = window.location.origin === 'https://localhost' 
+  ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
+  : '';
+
 const WIPBadge = ({ className }: { className?: string }) => (
   <span className={cn("px-1.5 py-0.5 bg-amber-100 text-amber-600 text-[8px] font-bold rounded uppercase tracking-wider", className)}>
     WIP
@@ -1151,7 +1155,8 @@ export default function App() {
                 e.preventDefault();
                 setIsSendingFeedback(true);
                 try {
-                  const response = await fetch('/api/feedback', {
+                  const apiPath = `${BASE_URL}/api/feedback`;
+                  const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
