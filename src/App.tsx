@@ -23,7 +23,7 @@ import ImageEditor from './components/ImageEditor';
 import { performOCR } from './services/ocrService';
 import { auth, db, loginWithGoogle, handleAuthRedirect, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, addDoc, collection, query, orderBy, limit } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -198,24 +198,6 @@ export default function App() {
   const [feedbackTitle, setFeedbackTitle] = useState('');
   const [feedbackDescription, setFeedbackDescription] = useState('');
   const [isSendingFeedback, setIsSendingFeedback] = useState(false);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setFeedbacks([]);
-      return;
-    }
-
-    const q = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setFeedbacks(docs);
-    }, (error) => {
-      console.error("Error fetching feedbacks:", error);
-    });
-
-    return () => unsubscribe();
-  }, [isAdmin]);
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -1060,60 +1042,6 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-
-                      {isAdmin && feedbacks.length > 0 && (
-                        <>
-                          <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <MessageSquarePlus size={18} className="text-amber-600" />
-                                <p className="font-bold">Retours Utilisateurs ({feedbacks.length})</p>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                              {feedbacks.map((fb) => (
-                                <div key={fb.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-2xl space-y-2">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className={cn(
-                                        "px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
-                                        fb.type === 'bug' ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"
-                                      )}>
-                                        {fb.type}
-                                      </span>
-                                      <p className="font-bold text-sm truncate">{fb.title}</p>
-                                    </div>
-                                    <p className="text-[8px] text-[var(--text-secondary)] whitespace-nowrap">
-                                      {fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Date inconnue'}
-                                    </p>
-                                  </div>
-                                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
-                                    {fb.description}
-                                  </p>
-                                  {(fb.userEmail || fb.userAgent) && (
-                                    <div className="pt-2 border-t border-[var(--border)] flex flex-col gap-1">
-                                      {fb.userEmail && (
-                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)]">
-                                          <User size={8} />
-                                          <span>{fb.userEmail}</span>
-                                        </div>
-                                      )}
-                                      {fb.userAgent && (
-                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)] opacity-60">
-                                          <Cpu size={8} />
-                                          <span className="truncate">{fb.userAgent}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1235,25 +1163,29 @@ export default function App() {
                 e.preventDefault();
                 setIsSendingFeedback(true);
                 try {
-                  // Save feedback directly to Firestore
-                  // This is much more robust on mobile/localhost
-                  await addDoc(collection(db, 'feedbacks'), {
-                    type: feedbackType,
-                    title: feedbackTitle,
-                    description: feedbackDescription,
-                    createdAt: serverTimestamp(),
-                    userId: user?.uid || null,
-                    userEmail: user?.email || null,
-                    userAgent: navigator.userAgent
+                  const apiPath = `${BASE_URL}/api/feedback`;
+                  const response = await fetch(apiPath, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: feedbackType,
+                      title: feedbackTitle,
+                      description: feedbackDescription
+                    })
                   });
-
-                  alert('Merci pour votre retour ! Il a été enregistré dans notre base de données.');
-                  setFeedbackTitle('');
-                  setFeedbackDescription('');
-                  setActiveTab('home');
+                  
+                  if (response.ok) {
+                    alert('Merci pour votre retour ! Votre message a été envoyé sur Discord.');
+                    setFeedbackTitle('');
+                    setFeedbackDescription('');
+                    setActiveTab('home');
+                  } else {
+                    const errorData = await response.json();
+                    alert(`Erreur lors de l'envoi : ${errorData.error || 'Erreur inconnue'}`);
+                  }
                 } catch (error) {
                   console.error('Feedback error:', error);
-                  handleFirestoreError(error, OperationType.CREATE, 'feedbacks');
+                  alert('Une erreur réseau est survenue. Vérifiez votre connexion.');
                 } finally {
                   setIsSendingFeedback(false);
                 }
