@@ -163,7 +163,7 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const isAdmin = user?.email === "monstertrio04@gmail.com";
+  const isAdmin = user !== null && user.email === "monstertrio04@gmail.com";
 
   const handleSaveDiscordConfig = async () => {
     if (!isAdmin) return;
@@ -958,9 +958,10 @@ export default function App() {
                               type="checkbox" 
                               className="sr-only peer" 
                               checked={logoLinkEnabled}
-                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
+                              onChange={(e) => isAdmin && setLogoLinkEnabled(e.target.checked)}
+                              disabled={!isAdmin}
                             />
-                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 opacity-50 peer-enabled:opacity-100"></div>
                           </label>
                         </div>
                         
@@ -970,8 +971,9 @@ export default function App() {
                             <input 
                               type="text" 
                               value={logoLinkUrl}
-                              onChange={(e) => setLogoLinkUrl(e.target.value)}
-                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                              onChange={(e) => isAdmin && setLogoLinkUrl(e.target.value)}
+                              disabled={!isAdmin}
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
                               placeholder="https://example.com"
                             />
                           </div>
@@ -1006,12 +1008,25 @@ export default function App() {
 
                           <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
                             <div className="space-y-0.5">
-                              <p className="text-sm font-bold">Plateforme</p>
-                              <p className="text-[10px] text-[var(--text-secondary)]">Capacitor Native Status</p>
+                              <p className="text-sm font-bold">Debug Info</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Copier les infos système</p>
                             </div>
-                            <div className="px-3 py-1 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-bold">
-                              {Capacitor.getPlatform().toUpperCase()}
-                            </div>
+                            <button 
+                              onClick={() => {
+                                const info = {
+                                  ua: navigator.userAgent,
+                                  url: window.location.href,
+                                  origin: window.location.origin,
+                                  platform: Capacitor.getPlatform(),
+                                  user: user ? { email: user.email, verified: user.emailVerified } : 'null'
+                                };
+                                navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+                                alert('Infos copiées !');
+                              }}
+                              className="px-4 py-2 bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold hover:bg-blue-200 transition-colors"
+                            >
+                              Copier
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1022,8 +1037,12 @@ export default function App() {
 
               <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
                 <div className="p-6 space-y-6">
-                  <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
-                  <p className="text-sm text-[var(--text-secondary)] -mt-4">Désactivez les outils inutiles pour simplifier l'interface.</p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
+                      <p className="text-sm text-[var(--text-secondary)]">Désactivez les outils inutiles pour simplifier l'interface.</p>
+                    </div>
+                  </div>
                   
                   <div className="space-y-6">
                     {[
@@ -1148,11 +1167,12 @@ export default function App() {
                     setFeedbackDescription('');
                     setActiveTab('home');
                   } else {
-                    alert('Erreur lors de l\'envoi du feedback. Veuillez réessayer.');
+                    const errorData = await response.json();
+                    alert(`Erreur lors de l'envoi : ${errorData.error || 'Erreur inconnue'}`);
                   }
                 } catch (error) {
                   console.error('Feedback error:', error);
-                  alert('Une erreur est survenue.');
+                  alert('Une erreur réseau est survenue. Vérifiez votre connexion.');
                 } finally {
                   setIsSendingFeedback(false);
                 }

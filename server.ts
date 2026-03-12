@@ -32,7 +32,8 @@ async function startServer() {
       try {
         const projectId = firebaseConfig.projectId;
         const databaseId = firebaseConfig.firestoreDatabaseId || "(default)";
-        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/configs/global`;
+        const apiKey = firebaseConfig.apiKey;
+        const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/configs/global?key=${apiKey}`;
         
         const firestoreRes = await fetch(url);
         if (firestoreRes.ok) {
