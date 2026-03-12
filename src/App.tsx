@@ -23,7 +23,7 @@ import ImageEditor from './components/ImageEditor';
 import { performOCR } from './services/ocrService';
 import { auth, db, loginWithGoogle, handleAuthRedirect, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -1163,29 +1163,25 @@ export default function App() {
                 e.preventDefault();
                 setIsSendingFeedback(true);
                 try {
-                  const apiPath = `${BASE_URL}/api/feedback`;
-                  const response = await fetch(apiPath, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      type: feedbackType,
-                      title: feedbackTitle,
-                      description: feedbackDescription
-                    })
+                  // Save feedback directly to Firestore
+                  // This is much more robust on mobile/localhost
+                  await addDoc(collection(db, 'feedbacks'), {
+                    type: feedbackType,
+                    title: feedbackTitle,
+                    description: feedbackDescription,
+                    createdAt: serverTimestamp(),
+                    userId: user?.uid || null,
+                    userEmail: user?.email || null,
+                    userAgent: navigator.userAgent
                   });
-                  
-                  if (response.ok) {
-                    alert('Merci pour votre retour ! Votre message a été envoyé sur Discord.');
-                    setFeedbackTitle('');
-                    setFeedbackDescription('');
-                    setActiveTab('home');
-                  } else {
-                    const errorData = await response.json();
-                    alert(`Erreur lors de l'envoi : ${errorData.error || 'Erreur inconnue'}`);
-                  }
+
+                  alert('Merci pour votre retour ! Il a été enregistré dans notre base de données.');
+                  setFeedbackTitle('');
+                  setFeedbackDescription('');
+                  setActiveTab('home');
                 } catch (error) {
                   console.error('Feedback error:', error);
-                  alert('Une erreur réseau est survenue. Vérifiez votre connexion.');
+                  handleFirestoreError(error, OperationType.CREATE, 'feedbacks');
                 } finally {
                   setIsSendingFeedback(false);
                 }

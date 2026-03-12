@@ -20,12 +20,54 @@
         }
       },
       "required": ["discordWebhookUrl"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback or bug report",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["bug", "idea", "other"],
+          "description": "Type of feedback"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short summary"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the feedback was submitted"
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the user (if logged in)"
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email of the user (if logged in)"
+        },
+        "userAgent": {
+          "type": "string",
+          "description": "Browser/Device information"
+        }
+      },
+      "required": ["type", "title", "description", "createdAt"]
     }
   },
   "firestore": {
     "configs/global": {
       "schema": "AppConfig",
       "description": "Global configuration document"
+    },
+    "feedbacks/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "Collection of user feedbacks"
     }
   }
 }
