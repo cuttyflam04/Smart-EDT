@@ -869,17 +869,6 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
             </div>
           )}
 
-          <button
-            onClick={() => { setTool('hand'); setPrevTool('hand'); }}
-            className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium transition-colors",
-              tool === 'hand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
-            )}
-            title="Déplacer (Main)"
-          >
-            <Hand size={18} />
-            <span className="hidden sm:inline">Déplacer</span>
-          </button>
         </div>
 
         <div className="flex items-center gap-2 min-w-max ml-4">
@@ -1000,11 +989,24 @@ export default function ImageEditor({ imageUrl, onClose, onSave, autoRotateEnabl
             onClick={() => setIsRotated(!isRotated)} 
             className={cn(
               "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
-              isRotated ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-black/5"
+              isRotated ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
             )}
             title="Rotation de l'écran"
           >
             <Smartphone className={cn(isRotated ? "rotate-90" : "rotate-0", "transition-transform duration-300")} size={18} />
+          </button>
+
+          <div className="w-px h-4 bg-[var(--border)] mx-1" />
+
+          <button 
+            onClick={() => { setTool('hand'); setPrevTool('hand'); }}
+            className={cn(
+              "w-8 h-8 flex items-center justify-center rounded-full transition-colors",
+              tool === 'hand' ? "bg-[var(--color-brand-accent)] text-white" : "hover:bg-[var(--border)]"
+            )}
+            title="Déplacer (Main)"
+          >
+            <Hand size={18} />
           </button>
         </div>
       )}
