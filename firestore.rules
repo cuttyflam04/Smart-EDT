@@ -28,12 +28,6 @@ service cloud.firestore {
       allow read: if true; // Allow anyone to read the config (server needs it)
       allow write: if isAdmin();
     }
-
-    match /feedbacks/{feedbackId} {
-      allow create: if true; // Allow anyone to submit feedback
-      allow read: if isAdmin(); // Only admin can read feedbacks
-      allow update, delete: if false;
-    }
     
     // Default deny
     match /{document=**} {

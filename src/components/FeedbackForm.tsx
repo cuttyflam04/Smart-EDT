@@ -41,7 +41,7 @@ Merci.`;
           <MessageSquare size={40} />
         </div>
         <div className="space-y-2">
-          <h3 className="text-xl font-bold">Besoin d'aide ?</h3>
+          <h3 className="text-xl font-bold">Contactez-nous</h3>
           <p className="text-sm text-[var(--text-secondary)] max-w-[280px]">
             Signalez un bug, proposez une idée ou posez une question directement via WhatsApp.
           </p>

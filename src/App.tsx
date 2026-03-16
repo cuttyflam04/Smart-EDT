@@ -1219,8 +1219,8 @@ export default function App() {
               activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
-            <MessageSquarePlus size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Feedback</span>
+            <MessageSquare size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Contact</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}

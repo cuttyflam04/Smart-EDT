@@ -77,32 +77,21 @@ async function testConnection() {
 testConnection();
 
 export const loginWithGoogle = async () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.location.origin === 'https://localhost';
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   
   try {
-    console.log("Starting login process...", { isMobile, origin: window.location.origin });
-    
     if (isMobile) {
-      console.log("Mobile detected, using redirect...");
       await signInWithRedirect(auth, googleProvider);
       return null;
     }
 
-    // Try popup for desktop
-    console.log("Desktop detected, using popup...");
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
-    console.error("Login error details:", {
-      code: error.code,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error("Login error:", error);
     
-    if (error.code === 'auth/unauthorized-domain') {
-      alert(`Erreur : Le domaine ${window.location.origin} n'est pas autorisé dans la console Firebase. Veuillez utiliser l'URL .run.app officielle.`);
-    } else if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-      console.log("Popup blocked, closed or cancelled, falling back to redirect...");
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      console.log("Popup issue, falling back to redirect...");
       try {
         await signInWithRedirect(auth, googleProvider);
       } catch (redirectError) {
@@ -110,7 +99,6 @@ export const loginWithGoogle = async () => {
         throw redirectError;
       }
     } else {
-      alert(`Erreur de connexion (${error.code}) : ${error.message}`);
       throw error;
     }
   }
