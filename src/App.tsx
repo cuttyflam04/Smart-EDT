@@ -20,10 +20,11 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
+import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
 import { auth, db, loginWithGoogle, handleAuthRedirect, handleFirestoreError, OperationType } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -35,7 +36,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const BASE_URL = window.location.origin.includes('localhost') 
-  ? 'https://ais-pre-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
+  ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
 
 const WIPBadge = ({ className }: { className?: string }) => (
@@ -194,10 +195,25 @@ export default function App() {
     return saved || 'https://github.com';
   });
   const [isCapturing, setIsCapturing] = useState(false);
-  const [feedbackType, setFeedbackType] = useState<'idea' | 'bug'>('idea');
-  const [feedbackTitle, setFeedbackTitle] = useState('');
-  const [feedbackDescription, setFeedbackDescription] = useState('');
-  const [isSendingFeedback, setIsSendingFeedback] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setFeedbacks([]);
+      return;
+    }
+
+    const q = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'), limit(50));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFeedbacks(docs);
+    }, (error) => {
+      console.error("Error fetching feedbacks:", error);
+    });
+
+    return () => unsubscribe();
+  }, [isAdmin]);
+
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -1034,6 +1050,78 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+
+                      {isAdmin && feedbacks.length > 0 && (
+                        <>
+                          <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare size={18} className="text-amber-600" />
+                                <p className="font-bold">Retours Utilisateurs ({feedbacks.length})</p>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                              {feedbacks.map((fb) => (
+                                <div key={fb.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-2xl space-y-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className={cn(
+                                        "px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
+                                        fb.type === 'bug' ? "bg-red-100 text-red-600" : 
+                                        fb.type === 'idea' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
+                                      )}>
+                                        {fb.type}
+                                      </span>
+                                      <p className="font-bold text-sm truncate">{fb.title}</p>
+                                    </div>
+                                    <p className="text-[8px] text-[var(--text-secondary)] whitespace-nowrap">
+                                      {fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Date inconnue'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {fb.severity && (
+                                      <span className={cn(
+                                        "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase",
+                                        fb.severity === 'critical' ? "bg-black text-white" :
+                                        fb.severity === 'high' ? "bg-orange-100 text-orange-600" :
+                                        fb.severity === 'medium' ? "bg-yellow-100 text-yellow-600" : "bg-blue-100 text-blue-600"
+                                      )}>
+                                        {fb.severity}
+                                      </span>
+                                    )}
+                                    {fb.category && (
+                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[8px] font-bold uppercase">
+                                        {fb.category}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
+                                    {fb.description}
+                                  </p>
+                                  {(fb.userEmail || fb.userAgent) && (
+                                    <div className="pt-2 border-t border-[var(--border)] flex flex-col gap-1">
+                                      {fb.userEmail && (
+                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)]">
+                                          <User size={8} />
+                                          <span>{fb.userEmail}</span>
+                                        </div>
+                                      )}
+                                      {fb.userAgent && (
+                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)] opacity-60">
+                                          <Cpu size={8} />
+                                          <span className="truncate">{fb.userAgent}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1147,111 +1235,15 @@ export default function App() {
               className="w-full max-w-md space-y-8"
             >
               <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Dépôt d'idées & Bugs</h2>
-                <p className="text-[var(--text-secondary)]">Aidez-nous à améliorer Smart EDT en partageant vos retours.</p>
+                <h2 className="text-3xl font-bold tracking-tight">Retours & Bugs</h2>
+                <p className="text-[var(--text-secondary)]">
+                  Votre avis nous aide à construire le futur de Smart EDT.
+                </p>
               </div>
 
-              <form className="space-y-4" onSubmit={async (e) => {
-                e.preventDefault();
-                setIsSendingFeedback(true);
-                try {
-                  const apiPath = `${BASE_URL}/api/feedback`;
-                  console.log('Sending feedback to:', apiPath);
-                  const response = await fetch(apiPath, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      type: feedbackType,
-                      title: feedbackTitle,
-                      description: feedbackDescription,
-                      metadata: {
-                        origin: window.location.origin,
-                        userAgent: navigator.userAgent,
-                        timestamp: new Date().toISOString()
-                      }
-                    })
-                  });
-                  
-                  if (response.ok) {
-                    alert('Merci pour votre retour ! Votre message a été envoyé sur Discord.');
-                    setFeedbackTitle('');
-                    setFeedbackDescription('');
-                    setActiveTab('home');
-                  } else {
-                    const errorData = await response.json().catch(() => ({}));
-                    console.error('Server error:', errorData);
-                    alert(`Erreur lors de l'envoi (${response.status}) : ${errorData.error || 'Erreur serveur'}`);
-                  }
-                } catch (error) {
-                  console.error('Feedback network error:', error);
-                  alert(`Erreur de connexion : Impossible de joindre le serveur. (${error instanceof Error ? error.message : 'Erreur inconnue'})`);
-                } finally {
-                  setIsSendingFeedback(false);
-                }
-              }}>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--surface)] rounded-xl">
-                    <button 
-                      type="button"
-                      onClick={() => setFeedbackType('idea')}
-                      className={cn(
-                        "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
-                        feedbackType === 'idea' ? "bg-white shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                      )}
-                    >
-                      <Lightbulb size={18} className={feedbackType === 'idea' ? "text-amber-500" : "opacity-40"} />
-                      Idée
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setFeedbackType('bug')}
-                      className={cn(
-                        "flex items-center justify-center gap-2 py-2 rounded-lg font-bold transition-all",
-                        feedbackType === 'bug' ? "bg-white shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-                      )}
-                    >
-                      <Bug size={18} className={feedbackType === 'bug' ? "text-red-500" : "opacity-40"} />
-                      Bug
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold ml-1">Titre</label>
-                    <input 
-                      type="text" 
-                      value={feedbackTitle}
-                      onChange={(e) => setFeedbackTitle(e.target.value)}
-                      placeholder="En quelques mots..."
-                      className="w-full px-4 py-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold ml-1">Description</label>
-                    <textarea 
-                      value={feedbackDescription}
-                      onChange={(e) => setFeedbackDescription(e.target.value)}
-                      placeholder="Détaillez votre idée ou le bug rencontré..."
-                      className="w-full px-4 py-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] focus:ring-2 focus:ring-[var(--color-brand-accent)] outline-none min-h-[120px] resize-none"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={isSendingFeedback}
-                  className="w-full py-4 bg-black text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:brightness-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSendingFeedback ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Send size={18} />
-                  )}
-                  {isSendingFeedback ? 'Envoi en cours...' : 'Envoyer le message'}
-                </button>
-              </form>
+              <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-xl shadow-black/5">
+                <FeedbackForm onClose={() => setActiveTab('home')} />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

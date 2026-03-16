@@ -20,12 +20,16 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(cors());
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
   app.use(express.json());
 
   // API route for feedback
   app.post("/api/feedback", async (req, res) => {
-    const { type, title, description } = req.body;
+    const { type, title, description, severity, category, userEmail, metadata } = req.body;
     
     let webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
@@ -55,27 +59,56 @@ async function startServer() {
       return res.status(500).json({ error: "Webhook not configured" });
     }
 
-    const color = type === 'bug' ? 0xFF0000 : 0xFFD700; // Red for bug, Gold for idea
-    const emoji = type === 'bug' ? '🐛' : '💡';
+    const colors: Record<string, number> = {
+      bug: 0xFF0000, // Red
+      idea: 0x00FF00, // Green
+      other: 0x7289DA, // Discord Blue
+      critical: 0x000000 // Black
+    };
+
+    const typeEmojis: Record<string, string> = {
+      bug: '🐛',
+      idea: '💡',
+      other: '💬'
+    };
+
+    const severityEmojis: Record<string, string> = {
+      low: '🔵',
+      medium: '🟡',
+      high: '🟠',
+      critical: '🔴'
+    };
+
+    const color = severity === 'critical' ? colors.critical : (colors[type] || colors.other);
+    const emoji = typeEmojis[type] || '❓';
+    const sevEmoji = severityEmojis[severity as string] || '';
 
     const payload = {
       embeds: [
         {
-          title: `${emoji} Nouveau Feedback : ${type.toUpperCase()}`,
+          title: `${emoji} ${type.toUpperCase()} : ${title || "Sans titre"}`,
+          description: description || "Pas de description",
           color: color,
           fields: [
             {
-              name: "Titre",
-              value: title || "Sans titre",
+              name: "Catégorie",
+              value: category || "Non spécifiée",
+              inline: true
             },
             {
-              name: "Description",
-              value: description || "Pas de description",
+              name: "Priorité",
+              value: `${sevEmoji} ${severity || "Normale"}`,
+              inline: true
             },
+            {
+              name: "Utilisateur",
+              value: userEmail || "Anonyme",
+              inline: true
+            }
           ],
           timestamp: new Date().toISOString(),
           footer: {
-            text: "Smart EDT Feedback System",
+            text: "Smart EDT Feedback System • v1.0.0",
           },
         },
       ],
