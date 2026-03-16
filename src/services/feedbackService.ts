@@ -20,8 +20,11 @@ const BASE_URL = window.location.origin.includes('localhost')
 export const submitFeedback = async (data: FeedbackData) => {
   const user = auth.currentUser;
   
-  const feedbackDoc = {
-    ...data,
+  // Build the document object manually to avoid any 'undefined' fields
+  const feedbackDoc: any = {
+    type: data.type,
+    title: data.title,
+    description: data.description,
     createdAt: serverTimestamp(),
     userId: user?.uid || null,
     userEmail: user?.email || null,
@@ -29,6 +32,19 @@ export const submitFeedback = async (data: FeedbackData) => {
     platform: (window as any).Capacitor?.getPlatform() || 'web',
     appVersion: '1.0.0'
   };
+
+  // Only add optional fields if they are explicitly defined and not null/undefined
+  if (data.severity !== undefined && data.severity !== null) {
+    feedbackDoc.severity = data.severity;
+  }
+  
+  if (data.category !== undefined && data.category !== null) {
+    feedbackDoc.category = data.category;
+  }
+  
+  if (data.metadata !== undefined && data.metadata !== null) {
+    feedbackDoc.metadata = data.metadata;
+  }
 
   try {
     // 1. Save to Firestore (Primary storage)

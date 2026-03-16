@@ -8,7 +8,7 @@ service cloud.firestore {
     // Collection: configs
     // Document ID: global
     // Fields:
-    //   - discordWebhookUrl: string (required) - The Discord webhook URL
+    //   - whatsappNumber: string (required) - The WhatsApp phone number
     //   - updatedAt: timestamp (optional) - Last update time
     //   - updatedBy: string (optional) - UID of the updater
     //

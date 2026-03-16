@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -143,7 +143,8 @@ export default function App() {
 
   // Firebase state
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [discordWebhookUrl, setDiscordWebhookUrl] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState('33600000000');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   useEffect(() => {
@@ -160,7 +161,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'configs', 'global'), (snapshot) => {
       if (snapshot.exists()) {
-        setDiscordWebhookUrl(snapshot.data().discordWebhookUrl || '');
+        setWhatsappNumber(snapshot.data().whatsappNumber || '33600000000');
       }
     }, (error) => {
       console.log("Config read permission denied or error:", error.message);
@@ -170,22 +171,35 @@ export default function App() {
 
   const isAdmin = user !== null && user.email === "monstertrio04@gmail.com";
 
-  const handleSaveDiscordConfig = async () => {
+  const handleLogin = async () => {
+    if (isLoggingIn) return;
+    setIsLoggingIn(true);
+    try {
+      await loginWithGoogle();
+    } catch (error) {
+      console.error("Login failed:", error);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleSaveWhatsappConfig = async () => {
     if (!isAdmin) return;
     setIsSavingConfig(true);
     try {
       await setDoc(doc(db, 'configs', 'global'), {
-        discordWebhookUrl,
+        whatsappNumber,
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid
-      });
-      alert('Configuration Discord mise à jour !');
+      }, { merge: true });
+      alert('Numéro WhatsApp mis à jour !');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'configs/global');
     } finally {
       setIsSavingConfig(false);
     }
   };
+
   const [logoLinkEnabled, setLogoLinkEnabled] = useState(() => {
     const saved = localStorage.getItem('smartedt_logolink_enabled');
     return saved ? JSON.parse(saved) : false;
@@ -195,24 +209,6 @@ export default function App() {
     return saved || 'https://github.com';
   });
   const [isCapturing, setIsCapturing] = useState(false);
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setFeedbacks([]);
-      return;
-    }
-
-    const q = query(collection(db, 'feedbacks'), orderBy('createdAt', 'desc'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setFeedbacks(docs);
-    }, (error) => {
-      console.error("Error fetching feedbacks:", error);
-    });
-
-    return () => unsubscribe();
-  }, [isAdmin]);
 
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -906,27 +902,23 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
+                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
                     <div className="p-6 space-y-8">
-                      {/* Discord Config */}
+                      {/* WhatsApp Config */}
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <MessageSquare size={18} className="text-amber-600" />
-                            <p className="font-bold">Configuration Discord</p>
+                            <Phone size={18} className="text-amber-600" />
+                            <p className="font-bold">Configuration WhatsApp</p>
                           </div>
                           {!user ? (
-                            <div className="flex flex-col items-end gap-1">
-                              <button 
-                                onClick={loginWithGoogle}
-                                className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline"
-                              >
-                                Connexion Admin
-                              </button>
-                              <p className="text-[8px] text-[var(--text-secondary)] opacity-60 max-w-[120px] text-right">
-                                Si le popup est bloqué, réessayez pour utiliser la redirection.
-                              </p>
-                            </div>
+                            <button 
+                              onClick={handleLogin}
+                              disabled={isLoggingIn}
+                              className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline disabled:opacity-50"
+                            >
+                              {isLoggingIn ? "Connexion..." : "Connexion Admin"}
+                            </button>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="text-[10px] font-bold text-amber-600/60 truncate max-w-[100px]">{user.email}</span>
@@ -941,19 +933,19 @@ export default function App() {
                         </div>
                         
                         <div className="space-y-2">
-                          <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">URL du Webhook</label>
+                          <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Numéro (Format international sans +)</label>
                           <div className="relative">
                             <input 
-                              type="password" 
-                              value={discordWebhookUrl}
-                              onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                              type="text" 
+                              value={whatsappNumber}
+                              onChange={(e) => setWhatsappNumber(e.target.value)}
                               disabled={!isAdmin}
-                              placeholder={isAdmin ? "https://discord.com/api/webhooks/..." : "Connectez-vous pour modifier"}
+                              placeholder="Ex: 33612345678"
                               className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
                             />
                             {isAdmin && (
                               <button 
-                                onClick={handleSaveDiscordConfig}
+                                onClick={handleSaveWhatsappConfig}
                                 disabled={isSavingConfig}
                                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-amber-600 text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
                               >
@@ -1050,78 +1042,6 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-
-                      {isAdmin && feedbacks.length > 0 && (
-                        <>
-                          <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
-                          <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <MessageSquare size={18} className="text-amber-600" />
-                                <p className="font-bold">Retours Utilisateurs ({feedbacks.length})</p>
-                              </div>
-                            </div>
-                            
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                              {feedbacks.map((fb) => (
-                                <div key={fb.id} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded-2xl space-y-2">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className={cn(
-                                        "px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider",
-                                        fb.type === 'bug' ? "bg-red-100 text-red-600" : 
-                                        fb.type === 'idea' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
-                                      )}>
-                                        {fb.type}
-                                      </span>
-                                      <p className="font-bold text-sm truncate">{fb.title}</p>
-                                    </div>
-                                    <p className="text-[8px] text-[var(--text-secondary)] whitespace-nowrap">
-                                      {fb.createdAt?.toDate ? fb.createdAt.toDate().toLocaleString() : 'Date inconnue'}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {fb.severity && (
-                                      <span className={cn(
-                                        "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase",
-                                        fb.severity === 'critical' ? "bg-black text-white" :
-                                        fb.severity === 'high' ? "bg-orange-100 text-orange-600" :
-                                        fb.severity === 'medium' ? "bg-yellow-100 text-yellow-600" : "bg-blue-100 text-blue-600"
-                                      )}>
-                                        {fb.severity}
-                                      </span>
-                                    )}
-                                    {fb.category && (
-                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[8px] font-bold uppercase">
-                                        {fb.category}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
-                                    {fb.description}
-                                  </p>
-                                  {(fb.userEmail || fb.userAgent) && (
-                                    <div className="pt-2 border-t border-[var(--border)] flex flex-col gap-1">
-                                      {fb.userEmail && (
-                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)]">
-                                          <User size={8} />
-                                          <span>{fb.userEmail}</span>
-                                        </div>
-                                      )}
-                                      {fb.userAgent && (
-                                        <div className="flex items-center gap-1 text-[8px] text-[var(--text-secondary)] opacity-60">
-                                          <Cpu size={8} />
-                                          <span className="truncate">{fb.userAgent}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1242,7 +1162,7 @@ export default function App() {
               </div>
 
               <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-xl shadow-black/5">
-                <FeedbackForm onClose={() => setActiveTab('home')} />
+                <FeedbackForm whatsappNumber={whatsappNumber} onClose={() => setActiveTab('home')} />
               </div>
             </motion.div>
           )}

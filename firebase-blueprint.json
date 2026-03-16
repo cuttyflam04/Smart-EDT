@@ -5,9 +5,9 @@
       "description": "Global application configuration",
       "type": "object",
       "properties": {
-        "discordWebhookUrl": {
+        "whatsappNumber": {
           "type": "string",
-          "description": "The URL of the Discord webhook for feedback"
+          "description": "The WhatsApp phone number for feedback"
         },
         "updatedAt": {
           "type": "string",
@@ -19,7 +19,7 @@
           "description": "UID of the user who last updated the config"
         }
       },
-      "required": ["discordWebhookUrl"]
+      "required": ["whatsappNumber"]
     },
     "Feedback": {
       "title": "Feedback",
