@@ -1152,15 +1152,8 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-md space-y-8"
+              className="w-full max-w-md px-4"
             >
-              <div className="text-center space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Retours & Bugs</h2>
-                <p className="text-[var(--text-secondary)]">
-                  Votre avis nous aide à construire le futur de Smart EDT.
-                </p>
-              </div>
-
               <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-xl shadow-black/5">
                 <FeedbackForm whatsappNumber={whatsappNumber} onClose={() => setActiveTab('home')} />
               </div>
@@ -1220,7 +1213,7 @@ export default function App() {
             )}
           >
             <MessageSquare size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Contact</span>
+            <span className="text-[10px] font-bold">Feedback</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
