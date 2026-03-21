@@ -61,7 +61,7 @@ Merci.`;
       {/* Close button like in the image */}
       <button 
         onClick={onClose}
-        className="absolute -top-2 -right-2 p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+        className="absolute -top-2 -right-2 p-2 rounded-full bg-white text-gray-500 hover:text-gray-900 transition-colors shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
       >
         <X size={20} />
       </button>
@@ -91,10 +91,10 @@ Merci.`;
                 key={type.id}
                 onClick={() => setSelectedType(type.id)}
                 title={type.label}
-                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-300 relative group aspect-square w-14 ${
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-300 relative group aspect-square w-14 appearance-none -webkit-tap-highlight-color-transparent ${
                   selectedType === type.id 
-                    ? 'border-[#075E54] bg-[#075E54]/5 dark:bg-[#075E54]/10 scale-110 shadow-md' 
-                    : 'border-transparent bg-gray-50 dark:bg-gray-800/50 hover:border-gray-200 dark:hover:border-gray-700'
+                    ? 'border-[#075E54] bg-[#075E54]/5 scale-110 shadow-md' 
+                    : 'border-transparent bg-white hover:border-gray-200'
                 }`}
               >
                 <div className={`${type.color} transition-transform group-hover:scale-110`}>
@@ -126,7 +126,7 @@ Merci.`;
             onChange={(e) => setDescription(e.target.value.slice(0, 500))}
             placeholder="Détaillez votre demande ici..."
             rows={4}
-            className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] transition-all resize-none shadow-sm"
+            className="w-full px-4 py-3 bg-white border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] transition-all resize-none shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
           />
         </div>
 
@@ -178,7 +178,7 @@ Merci.`;
           </button>
           <button
             onClick={onClose}
-            className="px-8 py-3.5 rounded-xl font-bold border-2 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+            className="px-8 py-3.5 rounded-xl font-bold border-2 border-gray-200 text-gray-600 bg-white hover:bg-gray-50 transition-all appearance-none -webkit-tap-highlight-color-transparent"
           >
             Annuler
           </button>

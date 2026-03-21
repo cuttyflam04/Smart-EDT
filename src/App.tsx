@@ -135,10 +135,7 @@ export default function App() {
     const saved = localStorage.getItem('smartedt_darkmode');
     return saved ? JSON.parse(saved) : false;
   });
-  const [isDeveloperMode, setIsDeveloperMode] = useState(() => {
-    const saved = localStorage.getItem('smartedt_devmode');
-    return saved ? JSON.parse(saved) : false;
-  });
+  const [isDeveloperMode, setIsDeveloperMode] = useState(false);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Firebase state
@@ -275,9 +272,6 @@ export default function App() {
     localStorage.setItem('smartedt_autorotate', JSON.stringify(autoRotateEnabled));
   }, [autoRotateEnabled]);
 
-  useEffect(() => {
-    localStorage.setItem('smartedt_devmode', JSON.stringify(isDeveloperMode));
-  }, [isDeveloperMode]);
 
   useEffect(() => {
     localStorage.setItem('smartedt_logolink_enabled', JSON.stringify(logoLinkEnabled));
@@ -659,7 +653,7 @@ export default function App() {
                         setPreview(null);
                         setProcessedPreview(null);
                       }} 
-                      className="flex items-center gap-2 px-4 py-2 bg-[var(--surface)] hover:bg-[var(--border)] rounded-xl font-medium transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl font-medium transition-colors shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
                     >
                       <X size={18} />
                       Changer de fichier
@@ -1120,7 +1114,7 @@ export default function App() {
                     longPressTimer.current = setTimeout(() => {
                       setIsDeveloperMode(true);
                       alert('Mode Développeur activé ! 🛠️');
-                    }, 3000);
+                    }, 5000);
                   }}
                   onMouseUp={() => {
                     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -1132,9 +1126,12 @@ export default function App() {
                     longPressTimer.current = setTimeout(() => {
                       setIsDeveloperMode(true);
                       alert('Mode Développeur activé ! 🛠️');
-                    }, 3000);
+                    }, 5000);
                   }}
                   onTouchEnd={() => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  }}
+                  onTouchCancel={() => {
                     if (longPressTimer.current) clearTimeout(longPressTimer.current);
                   }}
                   className="text-xs text-[var(--text-secondary)] font-mono hover:text-[var(--text)] transition-colors select-none"

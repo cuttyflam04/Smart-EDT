@@ -8,13 +8,13 @@
   --font-hand: "Caveat", cursive;
   
   --color-brand-primary: #141414;
-  --color-brand-accent: #F27D26;
+  --color-brand-accent: #075E54;
   --color-brand-bg: #FFFFFF;
   --color-brand-surface: #F8F8F8;
   --color-brand-border: rgba(20, 20, 20, 0.08);
 
   --color-dark-primary: #F5F5F5;
-  --color-dark-accent: #F27D26;
+  --color-dark-accent: #075E54;
   --color-dark-bg: #0F0F0F;
   --color-dark-surface: #1A1A1A;
   --color-dark-border: rgba(245, 245, 245, 0.1);
@@ -27,7 +27,7 @@
     --text-secondary: #555555;
     --surface: #F8F8F8;
     --border: rgba(20, 20, 20, 0.1);
-    --accent: #F27D26;
+    --accent: #075E54;
     --nav-bg: rgba(255, 255, 255, 0.85);
     --overlay: rgba(0, 0, 0, 0.4);
   }
@@ -38,7 +38,7 @@
     --text-secondary: #A0A0A0;
     --surface: #1A1A1A;
     --border: rgba(245, 245, 245, 0.12);
-    --accent: #F27D26;
+    --accent: #075E54;
     --nav-bg: rgba(20, 20, 20, 0.85);
     --overlay: rgba(0, 0, 0, 0.8);
   }
