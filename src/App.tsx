@@ -653,7 +653,7 @@ export default function App() {
                         setPreview(null);
                         setProcessedPreview(null);
                       }} 
-                      className="flex items-center gap-2 px-4 py-2 bg-[var(--surface)] hover:bg-[var(--border)] rounded-xl font-medium transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl font-medium transition-colors shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
                     >
                       <X size={18} />
                       Changer de fichier
