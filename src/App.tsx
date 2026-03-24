@@ -554,7 +554,7 @@ export default function App() {
             :root {
               --color-brand-bg: #E4E3E0 !important;
               --color-brand-primary: #141414 !important;
-              --color-brand-accent: #F27D26 !important;
+              --color-brand-accent: #075E54 !important;
             }
             .dark {
               --color-dark-bg: #0F0F0F !important;

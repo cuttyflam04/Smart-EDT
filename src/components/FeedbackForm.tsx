@@ -80,7 +80,7 @@ Merci.`;
           <div className="flex justify-between items-center">
             <p className="text-sm font-semibold text-[var(--text)]">Que pensez-vous de nous ?</p>
             {selectedType && (
-              <span className="text-[10px] font-bold text-[#075E54] uppercase tracking-wider bg-[#075E54]/10 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold text-[#f27d26] uppercase tracking-wider bg-[#f27d26]/10 px-2 py-0.5 rounded-full">
                 {FEEDBACK_TYPES.find(t => t.id === selectedType)?.label}
               </span>
             )}
@@ -93,7 +93,7 @@ Merci.`;
                 title={type.label}
                 className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-300 relative group aspect-square w-14 appearance-none -webkit-tap-highlight-color-transparent ${
                   selectedType === type.id 
-                    ? 'border-[#075E54] bg-[#075E54]/5 scale-110 shadow-md' 
+                    ? 'border-[#f27d26] bg-[#f27d26]/5 scale-110 shadow-md' 
                     : 'border-transparent bg-white hover:border-gray-200'
                 }`}
               >
@@ -101,7 +101,7 @@ Merci.`;
                   <type.icon size={24} strokeWidth={selectedType === type.id ? 2.5 : 2} />
                 </div>
                 {selectedType === type.id && (
-                  <div className="absolute -top-1 -right-1 bg-[#075E54] text-white rounded-full p-0.5 shadow-sm">
+                  <div className="absolute -top-1 -right-1 bg-[#f27d26] text-white rounded-full p-0.5 shadow-sm">
                     <Check size={10} strokeWidth={4} />
                   </div>
                 )}
@@ -126,7 +126,7 @@ Merci.`;
             onChange={(e) => setDescription(e.target.value.slice(0, 500))}
             placeholder="Détaillez votre demande ici..."
             rows={4}
-            className="w-full px-4 py-3 bg-white border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-[#075E54]/20 focus:border-[#075E54] transition-all resize-none shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
+            className="w-full px-4 py-3 bg-white border border-gray-200 dark:border-gray-700 rounded-xl outline-none text-sm focus:ring-2 focus:ring-[#f27d26]/20 focus:border-[#f27d26] transition-all resize-none shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
           />
         </div>
 
@@ -135,7 +135,7 @@ Merci.`;
           <p className="text-sm font-semibold text-[var(--text)]">Pouvons-nous vous recontacter ?</p>
           <div className="flex gap-6">
             <label className="flex items-center gap-2 cursor-pointer group">
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${followUp === 'yes' ? 'border-[#075E54] bg-[#075E54]' : 'border-gray-300 dark:border-gray-600 group-hover:border-gray-400'}`}>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${followUp === 'yes' ? 'border-[#f27d26] bg-[#f27d26]' : 'border-gray-300 dark:border-gray-600 group-hover:border-gray-400'}`}>
                 <input 
                   type="radio" 
                   className="sr-only" 
@@ -148,7 +148,7 @@ Merci.`;
               <span className="text-sm text-[var(--text-secondary)] group-hover:text-[var(--text)] transition-colors">Oui</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer group">
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${followUp === 'no' ? 'border-[#075E54] bg-[#075E54]' : 'border-gray-300 dark:border-gray-600 group-hover:border-gray-400'}`}>
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${followUp === 'no' ? 'border-[#f27d26] bg-[#f27d26]' : 'border-gray-300 dark:border-gray-600 group-hover:border-gray-400'}`}>
                 <input 
                   type="radio" 
                   className="sr-only" 
@@ -168,7 +168,7 @@ Merci.`;
           <button
             onClick={handleWhatsAppFeedback}
             disabled={!selectedType}
-            className="flex-1 bg-[#075E54] text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-[#075E54]/20 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+            className="flex-1 bg-[#f27d26] text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-[#f27d26]/20 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
           >
             {/* WhatsApp Logo SVG */}
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
