@@ -35,6 +35,75 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Notification system
+interface Notification {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+function Toast({ message, type, onDismiss }: { message: string, type: 'success' | 'error' | 'info', onDismiss: () => void, key?: string }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  const bgColor = {
+    success: 'bg-green-500',
+    error: 'bg-red-500',
+    info: 'bg-blue-500'
+  }[type];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      className={cn("fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl text-white font-bold shadow-2xl z-[9999] flex items-center gap-3 pointer-events-auto", bgColor)}
+    >
+      {type === 'success' && <CheckCircle2 size={20} />}
+      {type === 'error' && <Bug size={20} />}
+      {type === 'info' && <Loader2 size={20} className="animate-spin" />}
+      <span>{message}</span>
+      <button onClick={onDismiss} className="ml-2 hover:opacity-70 transition-opacity">
+        <X size={16} />
+      </button>
+    </motion.div>
+  );
+}
+
+// Save File Utility
+async function saveFile(blob: Blob, suggestedName: string, mimeType: string) {
+  // Try File System Access API first (forces "Save As" dialog)
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: mimeType === 'application/pdf' ? 'PDF Document' : 'Image',
+          accept: { [mimeType]: [mimeType === 'application/pdf' ? '.pdf' : '.png'] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    } catch (err: any) {
+      if (err.name === 'AbortError') return false;
+      console.warn('File System Access API failed, falling back:', err);
+    }
+  }
+  
+  // Fallback to traditional download
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = suggestedName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+  return true;
+}
+
 const BASE_URL = window.location.origin.includes('localhost') 
   ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
@@ -189,7 +258,7 @@ export default function App() {
         updatedAt: serverTimestamp(),
         updatedBy: user?.uid
       }, { merge: true });
-      alert('Numéro WhatsApp mis à jour !');
+      addNotification('Numéro WhatsApp mis à jour !', 'success');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'configs/global');
     } finally {
@@ -206,6 +275,19 @@ export default function App() {
     return saved || 'https://github.com';
   });
   const [isCapturing, setIsCapturing] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isPageSelectorOpen, setIsPageSelectorOpen] = useState(false);
+  const [pdfForSelection, setPdfForSelection] = useState<any>(null);
+  const [selectedPageForEdit, setSelectedPageForEdit] = useState(1);
+
+  const addNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    const id = Math.random().toString(36).substring(7);
+    setNotifications(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -349,11 +431,11 @@ export default function App() {
     multiple: false
   } as any);
 
-  const convertPdfToImage = async (fileUrl: string): Promise<string | null> => {
+  const convertPdfToImage = async (fileUrl: string, pageNumber: number = 1): Promise<string | null> => {
     try {
       const loadingTask = pdfjs.getDocument(fileUrl);
       const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1); // Use first page
+      const page = await pdf.getPage(pageNumber); // Use specified page
       const viewport = page.getViewport({ scale: 2.0 }); // High res for editing
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -370,14 +452,14 @@ export default function App() {
     }
   };
 
-  const handleOpenEditor = async () => {
+  const handleOpenEditor = async (pageNumber: number = 1) => {
     if (!preview) return;
     
     setIsProcessing(true);
     let imageUrlToEdit = processedPreview || preview;
     
     if (fileType === 'application/pdf' && !processedPreview) {
-      const converted = await convertPdfToImage(preview);
+      const converted = await convertPdfToImage(preview, pageNumber);
       if (converted) {
         imageUrlToEdit = converted;
       }
@@ -386,6 +468,23 @@ export default function App() {
     setIsProcessing(false);
     setEditorImageUrl(imageUrlToEdit);
     setIsEditorOpen(true);
+    setIsPageSelectorOpen(false);
+  };
+
+  const handleStartEditor = async () => {
+    if (!preview) return;
+
+    if (fileType === 'application/pdf' && !processedPreview) {
+      const loadingTask = pdfjs.getDocument(preview);
+      const pdf = await loadingTask.promise;
+      if (pdf.numPages > 1) {
+        setPdfForSelection(pdf);
+        setIsPageSelectorOpen(true);
+        return;
+      }
+    }
+    
+    handleOpenEditor(1);
   };
 
   const handleSaveEdit = (editedImageUrl: string) => {
@@ -417,21 +516,23 @@ export default function App() {
           const pdfBase64 = pdf.output('datauristring').split(',')[1];
           const fileName = `SmartEDT_${Date.now()}.pdf`;
           
-          const result = await Filesystem.writeFile({
+          await Filesystem.writeFile({
             path: fileName,
             data: pdfBase64,
             directory: Directory.Documents, // Save to Documents folder
             recursive: true
           });
 
-          alert(`PDF enregistré avec succès dans vos Documents !\nNom: ${fileName}`);
+          addNotification(`PDF enregistré avec succès dans vos Documents !`, 'success');
         } catch (e: any) {
           console.error('PDF Native Save Error:', e);
-          alert("Erreur lors de la sauvegarde du PDF : " + (e.message || e));
+          addNotification("Erreur lors de la sauvegarde du PDF.", 'error');
           pdf.save('EDT_modifie.pdf');
         }
       } else {
-        pdf.save('EDT_modifie.pdf');
+        const pdfBlob = pdf.output('blob');
+        const success = await saveFile(pdfBlob, 'EDT_modifie.pdf', 'application/pdf');
+        if (success) addNotification('PDF prêt !', 'success');
       }
     };
     img.src = processedPreview;
@@ -458,20 +559,19 @@ export default function App() {
           recursive: true
         });
 
-        alert(`Image enregistrée avec succès dans vos Documents !\nNom: ${fileName}`);
+        addNotification(`Image enregistrée avec succès dans vos Documents !`, 'success');
       } catch (e: any) {
         console.error('Save error:', e);
-        alert("Erreur lors de la sauvegarde de l'image : " + (e.message || e));
-        const link = document.createElement('a');
-        link.href = processedPreview;
-        link.download = 'EDT_modifie.png';
-        link.click();
+        addNotification("Erreur lors de la sauvegarde de l'image.", 'error');
+        const response = await fetch(processedPreview);
+        const blob = await response.blob();
+        await saveFile(blob, 'EDT_modifie.png', 'image/png');
       }
     } else {
-      const link = document.createElement('a');
-      link.href = processedPreview;
-      link.download = 'EDT_modifie.png';
-      link.click();
+      const response = await fetch(processedPreview);
+      const blob = await response.blob();
+      const success = await saveFile(blob, 'EDT_modifie.png', 'image/png');
+      if (success) addNotification('Image prête !', 'success');
     }
   };
 
@@ -652,6 +752,8 @@ export default function App() {
                       onClick={() => {
                         setPreview(null);
                         setProcessedPreview(null);
+                        setPdfForSelection(null);
+                        setIsPageSelectorOpen(false);
                       }} 
                       className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl font-medium transition-colors shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
                     >
@@ -697,7 +799,7 @@ export default function App() {
 
                   <div className="w-full p-4 bg-[var(--surface)]/50 rounded-2xl border border-[var(--border)] flex flex-wrap items-center justify-center gap-4">
                     <button
-                      onClick={handleOpenEditor}
+                      onClick={handleStartEditor}
                       disabled={isProcessing}
                       className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--text)] text-[var(--bg)] hover:opacity-90 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                     >
@@ -1224,6 +1326,74 @@ export default function App() {
           </button>
         </div>
       </nav>
+
+      {/* Notifications */}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+        <AnimatePresence>
+          {notifications.map(n => (
+            <Toast key={n.id} message={n.message} type={n.type} onDismiss={() => removeNotification(n.id)} />
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Page Selector Modal for Multi-page PDF */}
+      <AnimatePresence>
+        {isPageSelectorOpen && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPageSelectorOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-[var(--bg)] rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+            >
+              <div className="p-6 border-b border-[var(--border)] flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-bold">Choisir une page</h3>
+                  <p className="text-sm text-[var(--text-secondary)]">Ce PDF contient {pdfForSelection?.numPages} pages. Quelle page souhaitez-vous éditer ?</p>
+                </div>
+                <button onClick={() => setIsPageSelectorOpen(false)} className="p-2 hover:bg-black/5 rounded-full transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {Array.from(new Array(pdfForSelection?.numPages || 0), (el, index) => (
+                  <button
+                    key={`select_page_${index + 1}`}
+                    onClick={() => handleOpenEditor(index + 1)}
+                    className="group relative aspect-[3/4] border-2 border-[var(--border)] rounded-xl overflow-hidden hover:border-[var(--color-brand-accent)] transition-all bg-[var(--surface)]"
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Document file={preview} className="scale-[0.2] origin-center">
+                        <Page pageNumber={index + 1} width={containerWidth} renderTextLayer={false} renderAnnotationLayer={false} />
+                      </Document>
+                    </div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-end justify-center p-2">
+                      <span className="bg-white/90 dark:bg-black/90 px-3 py-1 rounded-full text-xs font-bold shadow-sm">Page {index + 1}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              
+              <div className="p-6 border-t border-[var(--border)] bg-[var(--surface)]/50 flex justify-end">
+                <button 
+                  onClick={() => setIsPageSelectorOpen(false)}
+                  className="px-6 py-2 rounded-xl font-bold hover:bg-black/5 transition-colors"
+                >
+                  Annuler
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
