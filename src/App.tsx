@@ -198,6 +198,15 @@ const Logo = ({ showText = false }: { showText?: boolean }) => (
 
 export default function App() {
   const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Cleanup preview Blob URL when preview changes
+    return () => {
+      if (preview?.startsWith('blob:')) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
   const [fileType, setFileType] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
@@ -229,7 +238,24 @@ export default function App() {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [libraryFiles, setLibraryFiles] = useState<{ name: string, type: 'image' | 'pdf', data?: string, uri?: string }[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
-  const [viewerFile, setViewerFile] = useState<{ name: string, type: 'image' | 'pdf', data: string } | null>(null);
+  const [viewerFile, setViewerFile] = useState<{ name: string, type: 'image' | 'pdf', data: string | Uint8Array } | null>(null);
+  const [viewerPageNumber, setViewerPageNumber] = useState(1);
+  const [viewerNumPages, setViewerNumPages] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Reset page number when opening a new file
+    if (viewerFile) {
+      setViewerPageNumber(1);
+      setViewerNumPages(null);
+    }
+    
+    // Cleanup Blob URLs when viewer closes
+    return () => {
+      if (typeof viewerFile?.data === 'string' && viewerFile.data.startsWith('blob:')) {
+        URL.revokeObjectURL(viewerFile.data);
+      }
+    };
+  }, [viewerFile]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -325,9 +351,16 @@ export default function App() {
     }
   }, [activeTab]);
 
-  const handleEditLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
+  const handleEditLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string | Uint8Array, uri?: string }) => {
     if (file.data) {
-      setPreview(file.data);
+      if (typeof file.data === 'string') {
+        setPreview(file.data);
+      } else {
+        const mimeType = file.type === 'pdf' ? 'application/pdf' : 'image/png';
+        const blob = new Blob([file.data], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setPreview(url);
+      }
       setFileType(file.type === 'pdf' ? 'application/pdf' : 'image/png');
       setActiveTab('home');
       return;
@@ -339,8 +372,19 @@ export default function App() {
           path: `EDT/${file.name}`,
           directory: Directory.Documents,
         });
-        const dataUrl = `data:${file.type === 'pdf' ? 'application/pdf' : 'image/png'};base64,${contents.data}`;
-        setPreview(dataUrl);
+        
+        const base64 = typeof contents.data === 'string' ? contents.data : '';
+        if (!base64) throw new Error('No data found');
+        
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        
+        const mimeType = file.type === 'pdf' ? 'application/pdf' : 'image/png';
+        const blob = new Blob([bytes], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        
+        setPreview(url);
         setFileType(file.type === 'pdf' ? 'application/pdf' : 'image/png');
         setActiveTab('home');
       } catch (e) {
@@ -352,16 +396,13 @@ export default function App() {
 
   const handleViewLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
     if (file.data) {
-      // For PDFs, use a Blob URL for better compatibility in iframes
       if (file.type === 'pdf') {
         try {
           const base64 = file.data.includes(',') ? file.data.split(',')[1] : file.data;
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          setViewerFile({ name: file.name, type: file.type, data: url });
+          setViewerFile({ name: file.name, type: file.type, data: bytes });
         } catch (e) {
           setViewerFile({ name: file.name, type: file.type, data: file.data });
         }
@@ -384,11 +425,12 @@ export default function App() {
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         
-        const mimeType = file.type === 'pdf' ? 'application/pdf' : 'image/png';
-        const blob = new Blob([bytes], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        
-        setViewerFile({ name: file.name, type: file.type, data: url });
+        if (file.type === 'pdf') {
+          setViewerFile({ name: file.name, type: file.type, data: bytes });
+        } else {
+          const dataUrl = `data:image/png;base64,${base64}`;
+          setViewerFile({ name: file.name, type: file.type, data: dataUrl });
+        }
       } catch (e) {
         console.error('Error reading file:', e);
         addNotification('Erreur lors de la lecture du fichier.', 'error');
@@ -654,56 +696,76 @@ export default function App() {
 
   const handleDownloadPdf = async () => {
     if (!processedPreview) return;
+    setIsProcessing(true);
 
     const img = new Image();
+    img.onerror = () => {
+      setIsProcessing(false);
+      addNotification("Erreur de chargement de l'image traitée.", 'error');
+    };
+    
     img.onload = async () => {
-      const pdf = new jsPDF({
-        orientation: img.width > img.height ? 'l' : 'p',
-        unit: 'px',
-        format: [img.width, img.height]
-      });
-      pdf.addImage(processedPreview, 'PNG', 0, 0, img.width, img.height);
-      
-      if (Capacitor.isNativePlatform()) {
-        try {
-          // Request permissions first
-          const perm = await Filesystem.checkPermissions();
-          if (perm.publicStorage !== 'granted') {
-            await Filesystem.requestPermissions();
-          }
-
-          const pdfBase64 = pdf.output('datauristring').split(',')[1];
-          const fileName = `SmartEDT_${Date.now()}.pdf`;
-          
-          await Filesystem.writeFile({
-            path: `EDT/${fileName}`,
-            data: pdfBase64,
-            directory: Directory.Documents,
-            recursive: true
-          });
-
-          const lastSaved = { 
-            name: fileName, 
-            type: 'pdf' as const, 
-            data: Capacitor.isNativePlatform() ? undefined : `data:application/pdf;base64,${pdfBase64}` 
-          };
-          setLastSavedEDT(lastSaved);
+      try {
+        const pdf = new jsPDF({
+          orientation: img.width > img.height ? 'l' : 'p',
+          unit: 'px',
+          format: [img.width, img.height]
+        });
+        pdf.addImage(processedPreview, 'PNG', 0, 0, img.width, img.height);
+        
+        if (Capacitor.isNativePlatform()) {
           try {
-            localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
-          } catch (e) {
-            console.warn('LocalStorage quota exceeded');
-          }
+            // Request permissions first
+            const perm = await Filesystem.checkPermissions();
+            if (perm.publicStorage !== 'granted') {
+              await Filesystem.requestPermissions();
+            }
 
-          addNotification(`PDF enregistré !`, 'success');
-        } catch (e: any) {
-          console.error('PDF Native Save Error:', e);
-          addNotification("Erreur de sauvegarde PDF.", 'error');
-          pdf.save('EDT_modifie.pdf');
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            const fileName = `SmartEDT_${Date.now()}.pdf`;
+            
+            await Filesystem.writeFile({
+              path: `EDT/${fileName}`,
+              data: pdfBase64,
+              directory: Directory.Documents,
+              recursive: true
+            });
+
+            const lastSaved = { 
+              name: fileName, 
+              type: 'pdf' as const, 
+              data: undefined 
+            };
+            setLastSavedEDT(lastSaved);
+            try {
+              localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+            } catch (e) {
+              console.warn('LocalStorage quota exceeded');
+            }
+
+            addNotification(`PDF enregistré !`, 'success');
+            loadLibraryFiles();
+          } catch (e: any) {
+            console.error('PDF Native Save Error:', e);
+            addNotification("Erreur de sauvegarde PDF.", 'error');
+          }
+        } else {
+          const pdfBlob = pdf.output('blob');
+          const fileName = `SmartEDT_${Date.now()}.pdf`;
+          const success = await saveFile(pdfBlob, fileName, 'application/pdf');
+          
+          if (success) {
+            const lastSaved = { name: fileName, type: 'pdf' as const };
+            setLastSavedEDT(lastSaved);
+            localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+            addNotification('PDF enregistré !', 'success');
+          }
         }
-      } else {
-        const pdfBlob = pdf.output('blob');
-        const success = await saveFile(pdfBlob, `EDT_${Date.now()}.pdf`, 'application/pdf');
-        if (success) addNotification('PDF enregistré !', 'success');
+      } catch (error) {
+        console.error('PDF Creation Error:', error);
+        addNotification('Erreur lors de la création du PDF.', 'error');
+      } finally {
+        setIsProcessing(false);
       }
     };
     img.src = processedPreview;
@@ -1695,34 +1757,112 @@ export default function App() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[10000] bg-black flex flex-col"
           >
-            <div className="p-4 flex justify-between items-center bg-black/50 backdrop-blur-md text-white">
+            <div className="p-4 flex justify-between items-center bg-black/80 backdrop-blur-md text-white border-b border-white/10">
               <div className="min-w-0">
                 <p className="font-bold truncate text-sm">{viewerFile.name.split('/').pop()}</p>
                 <p className="text-[10px] opacity-70 uppercase tracking-widest">Mode Lecture</p>
               </div>
-              <button 
-                onClick={() => setViewerFile(null)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
-              >
-                <X size={24} />
-              </button>
+              <div className="flex items-center gap-2">
+                {viewerFile.type === 'pdf' && (
+                  <button 
+                    onClick={() => {
+                      if (typeof viewerFile.data === 'string') {
+                        window.open(viewerFile.data, '_blank');
+                      } else {
+                        const blob = new Blob([viewerFile.data], { type: 'application/pdf' });
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                      }
+                    }}
+                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                    title="Ouvrir dans un nouvel onglet"
+                  >
+                    <Maximize2 size={20} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => setViewerFile(null)}
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
             
-            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+            <div className="flex-1 overflow-auto flex flex-col items-center bg-zinc-900/50">
               {viewerFile.type === 'pdf' ? (
-                <div className="w-full h-full bg-white rounded-xl overflow-hidden">
-                  <iframe 
-                    src={viewerFile.data} 
-                    className="w-full h-full border-none"
-                    title="PDF Viewer"
+                <div className="w-full max-w-3xl flex flex-col items-center py-8 px-4">
+                  <div className="w-full bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center min-h-[500px]">
+                    <div className="w-full overflow-auto flex justify-center bg-gray-200/50 p-4">
+                      <Document
+                        file={viewerFile.data}
+                        onLoadSuccess={({ numPages }) => setViewerNumPages(numPages)}
+                        loading={
+                          <div className="flex flex-col items-center gap-4 py-32">
+                            <Loader2 className="animate-spin text-amber-600" size={40} />
+                            <p className="text-sm text-gray-500 font-bold animate-pulse">Chargement de votre emploi du temps...</p>
+                          </div>
+                        }
+                        error={
+                          <div className="flex flex-col items-center gap-4 py-32 text-rose-500 px-6 text-center">
+                            <div className="p-4 bg-rose-50 rounded-full">
+                              <X size={40} />
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-lg font-bold">Impossible de lire le PDF</p>
+                              <p className="text-sm opacity-80">Le fichier est peut-être corrompu ou trop volumineux.</p>
+                            </div>
+                            <button 
+                              onClick={() => window.open(viewerFile.data, '_blank')}
+                              className="mt-4 px-6 py-3 bg-rose-500 text-white rounded-xl font-bold shadow-lg"
+                            >
+                              Ouvrir en plein écran
+                            </button>
+                          </div>
+                        }
+                      >
+                        <Page 
+                          pageNumber={viewerPageNumber} 
+                          width={Math.min(window.innerWidth - 64, 800)}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          className="shadow-lg"
+                        />
+                      </Document>
+                    </div>
+                  
+                  {viewerNumPages && viewerNumPages > 1 && (
+                    <div className="w-full p-4 bg-white border-t flex items-center justify-between">
+                      <button
+                        disabled={viewerPageNumber <= 1}
+                        onClick={() => setViewerPageNumber(prev => Math.max(1, prev - 1))}
+                        className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                      >
+                        <ChevronLeft size={24} />
+                      </button>
+                      <span className="text-sm font-bold text-gray-600">
+                        Page {viewerPageNumber} sur {viewerNumPages}
+                      </span>
+                      <button
+                        disabled={viewerPageNumber >= viewerNumPages}
+                        onClick={() => setViewerPageNumber(prev => Math.min(viewerNumPages, prev + 1))}
+                        className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
+                      >
+                        <ChevronLeft size={24} className="rotate-180" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <img 
+                    src={typeof viewerFile.data === 'string' ? viewerFile.data : ''} 
+                    alt="Viewer" 
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                   />
                 </div>
-              ) : (
-                <img 
-                  src={viewerFile.data} 
-                  alt="Viewer" 
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                />
               )}
             </div>
 
