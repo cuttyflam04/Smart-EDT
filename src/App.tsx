@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -207,7 +207,7 @@ export default function App() {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'library' | 'account' | 'settings' | 'feedback'>('home');
-  const [lastSavedEDT, setLastSavedEDT] = useState<{ name: string, type: 'image' | 'pdf', data: string } | null>(() => {
+  const [lastSavedEDT, setLastSavedEDT] = useState<{ name: string, type: 'image' | 'pdf', data?: string } | null>(() => {
     const saved = localStorage.getItem('smartedt_last_saved');
     return saved ? JSON.parse(saved) : null;
   });
@@ -333,7 +333,7 @@ export default function App() {
       return;
     }
 
-    if (file.uri) {
+    if (Capacitor.isNativePlatform()) {
       try {
         const contents = await Filesystem.readFile({
           path: `EDT/${file.name}`,
@@ -352,18 +352,43 @@ export default function App() {
 
   const handleViewLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
     if (file.data) {
-      setViewerFile({ name: file.name, type: file.type, data: file.data });
+      // For PDFs, use a Blob URL for better compatibility in iframes
+      if (file.type === 'pdf') {
+        try {
+          const base64 = file.data.includes(',') ? file.data.split(',')[1] : file.data;
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          setViewerFile({ name: file.name, type: file.type, data: url });
+        } catch (e) {
+          setViewerFile({ name: file.name, type: file.type, data: file.data });
+        }
+      } else {
+        setViewerFile({ name: file.name, type: file.type, data: file.data });
+      }
       return;
     }
 
-    if (file.uri) {
+    if (Capacitor.isNativePlatform()) {
       try {
         const contents = await Filesystem.readFile({
           path: `EDT/${file.name}`,
           directory: Directory.Documents,
         });
-        const dataUrl = `data:${file.type === 'pdf' ? 'application/pdf' : 'image/png'};base64,${contents.data}`;
-        setViewerFile({ name: file.name, type: file.type, data: dataUrl });
+        
+        const base64 = typeof contents.data === 'string' ? contents.data : '';
+        if (!base64) throw new Error('No data found');
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        
+        const mimeType = file.type === 'pdf' ? 'application/pdf' : 'image/png';
+        const blob = new Blob([bytes], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        
+        setViewerFile({ name: file.name, type: file.type, data: url });
       } catch (e) {
         console.error('Error reading file:', e);
         addNotification('Erreur lors de la lecture du fichier.', 'error');
@@ -648,29 +673,37 @@ export default function App() {
           }
 
           const pdfBase64 = pdf.output('datauristring').split(',')[1];
-          const fileName = `EDT/SmartEDT_${Date.now()}.pdf`;
+          const fileName = `SmartEDT_${Date.now()}.pdf`;
           
           await Filesystem.writeFile({
-            path: fileName,
+            path: `EDT/${fileName}`,
             data: pdfBase64,
-            directory: Directory.Documents, // Save to Documents/EDT folder
+            directory: Directory.Documents,
             recursive: true
           });
 
-          const lastSaved = { name: fileName, type: 'pdf' as const, data: `data:application/pdf;base64,${pdfBase64}` };
+          const lastSaved = { 
+            name: fileName, 
+            type: 'pdf' as const, 
+            data: Capacitor.isNativePlatform() ? undefined : `data:application/pdf;base64,${pdfBase64}` 
+          };
           setLastSavedEDT(lastSaved);
-          localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+          try {
+            localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+          } catch (e) {
+            console.warn('LocalStorage quota exceeded');
+          }
 
-          addNotification(`PDF enregistré dans le dossier EDT !`, 'success');
+          addNotification(`PDF enregistré !`, 'success');
         } catch (e: any) {
           console.error('PDF Native Save Error:', e);
-          addNotification("Erreur lors de la sauvegarde du PDF.", 'error');
+          addNotification("Erreur de sauvegarde PDF.", 'error');
           pdf.save('EDT_modifie.pdf');
         }
       } else {
         const pdfBlob = pdf.output('blob');
         const success = await saveFile(pdfBlob, `EDT_${Date.now()}.pdf`, 'application/pdf');
-        if (success) addNotification('PDF enregistré dans le dossier EDT !', 'success');
+        if (success) addNotification('PDF enregistré !', 'success');
       }
     };
     img.src = processedPreview;
@@ -687,24 +720,32 @@ export default function App() {
           await Filesystem.requestPermissions();
         }
 
-        const fileName = `EDT/SmartEDT_${Date.now()}.png`;
+        const fileName = `SmartEDT_${Date.now()}.png`;
         const base64Data = processedPreview.split(',')[1];
         
         await Filesystem.writeFile({
-          path: fileName,
+          path: `EDT/${fileName}`,
           data: base64Data,
-          directory: Directory.Documents, // Save to Documents/EDT folder
+          directory: Directory.Documents,
           recursive: true
         });
 
-        const lastSaved = { name: fileName, type: 'image' as const, data: processedPreview };
+        const lastSaved = { 
+          name: fileName, 
+          type: 'image' as const, 
+          data: Capacitor.isNativePlatform() ? undefined : processedPreview 
+        };
         setLastSavedEDT(lastSaved);
-        localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+        try {
+          localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+        } catch (e) {
+          console.warn('LocalStorage quota exceeded');
+        }
 
-        addNotification(`Image enregistrée dans le dossier EDT !`, 'success');
+        addNotification(`Image enregistrée !`, 'success');
       } catch (e: any) {
         console.error('Save error:', e);
-        addNotification("Erreur lors de la sauvegarde de l'image.", 'error');
+        addNotification("Erreur de sauvegarde Image.", 'error');
         const response = await fetch(processedPreview);
         const blob = await response.blob();
         await saveFile(blob, `EDT_${Date.now()}.png`, 'image/png');
@@ -713,7 +754,7 @@ export default function App() {
       const response = await fetch(processedPreview);
       const blob = await response.blob();
       const success = await saveFile(blob, `EDT_${Date.now()}.png`, 'image/png');
-      if (success) addNotification('Image enregistrée dans le dossier EDT !', 'success');
+      if (success) addNotification('Image enregistrée !', 'success');
     }
   };
 
@@ -895,12 +936,12 @@ export default function App() {
                   onClick={() => handleViewLibraryFile(lastSavedEDT)}
                 >
                   <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/5 flex items-center justify-center shrink-0 border border-black/5">
-                    {lastSavedEDT.type === 'image' ? (
+                    {lastSavedEDT.type === 'image' && lastSavedEDT.data ? (
                       <img src={lastSavedEDT.data} alt="Dernier EDT" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-red-500">
-                        <ImageIcon size={24} />
-                        <span className="text-[8px] font-bold">PDF</span>
+                      <div className={cn("flex flex-col items-center justify-center", lastSavedEDT.type === 'pdf' ? "text-red-500" : "text-blue-500")}>
+                        {lastSavedEDT.type === 'pdf' ? <FileText size={24} /> : <ImageIcon size={24} />}
+                        <span className="text-[8px] font-bold uppercase">{lastSavedEDT.type}</span>
                       </div>
                     )}
                   </div>
