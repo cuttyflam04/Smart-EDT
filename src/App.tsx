@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, Check, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Zap, Layout, Share2 } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -849,6 +849,8 @@ export default function App() {
     }
   };
 
+  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
+
   const handleScanText = async () => {
     if (!preview) return;
     
@@ -869,11 +871,32 @@ export default function App() {
       });
       
       setOcrText(text);
+      setIsOCRModalOpen(true);
+      addNotification("Analyse IA terminée !", "success");
     } catch (error) {
       console.error("OCR Error:", error);
-      alert("Erreur lors de l'analyse du texte.");
+      addNotification("Erreur lors de l'analyse IA.", "error");
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleConvertToImage = async (page: number = 1) => {
+    if (!preview || fileType !== 'application/pdf') return;
+    
+    setIsProcessing(true);
+    try {
+      const converted = await convertPdfToImage(preview, page);
+      if (converted) {
+        setProcessedPreview(converted);
+        setFileType('image/png');
+        addNotification("PDF converti en image haute qualité !", "success");
+      }
+    } catch (error) {
+      console.error('Conversion Error:', error);
+      addNotification("Erreur lors de la conversion.", "error");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1072,6 +1095,17 @@ export default function App() {
                     ref={pdfContainerRef}
                     className="w-full border-2 border-[var(--border)] rounded-3xl overflow-hidden bg-[var(--surface)] p-4 max-h-[70vh] overflow-y-auto"
                   >
+                    {fileType === 'application/pdf' && !processedPreview && (
+                      <div className="absolute top-4 right-4 z-10">
+                        <button
+                          onClick={() => handleConvertToImage(1)}
+                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold shadow-lg hover:bg-amber-600 transition-all animate-pulse"
+                        >
+                          <Zap size={16} />
+                          Optimiser en Image
+                        </button>
+                      </div>
+                    )}
                     {fileType === 'application/pdf' && !processedPreview ? (
                       <Document 
                         file={preview} 
@@ -1122,47 +1156,69 @@ export default function App() {
                       )}
                     </button>
 
-                    {enabledFeatures.ocr && (
-                      <button
-                        onClick={handleScanText}
-                        disabled={true}
-                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
-                      >
-                        <Scan size={20} className="text-[var(--text-secondary)]" />
-                        <span className="text-[var(--text-secondary)]">Scanner le texte</span>
-                        <div className="absolute top-1 right-1">
-                          <WIPBadge />
-                        </div>
+                    <button
+                      onClick={handleScanText}
+                      disabled={isScanning || (fileType === 'application/pdf' && !processedPreview)}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
+                    >
+                      {isScanning ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin text-amber-600" />
+                          <span className="text-amber-600">Analyse IA...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Scan size={20} className="text-[var(--text-secondary)]" />
+                          <div className="flex flex-col items-start">
+                            <span className="text-[var(--text-secondary)] leading-tight">Extraire le texte (IA)</span>
+                            <span className="text-[8px] text-amber-600 font-medium uppercase tracking-tighter">Exclusif aux images</span>
+                          </div>
+                        </>
+                      )}
+                      {(fileType === 'application/pdf' && !processedPreview) && (
                         <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[10px] text-amber-600 font-bold">Bientôt disponible !</span>
+                          <span className="text-[10px] text-amber-600 font-bold">Convertissez en image d'abord !</span>
                         </div>
-                      </button>
-                    )}
+                      )}
+                    </button>
 
                     {processedPreview && (
-                      <div className="w-full flex flex-col gap-3">
-                        <div className="flex flex-wrap items-center justify-center gap-4">
-                          <button
-                            onClick={handleDownloadPdf}
-                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20"
-                          >
-                            <Download size={20} />
-                            Enregistrer PDF
-                          </button>
-                          
-                          <button
-                            onClick={handleDownloadImage}
-                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--border)] transition-all"
-                          >
-                            <ImageIcon size={20} />
-                            Enregistrer Image
-                          </button>
+                      <div className="w-full flex flex-col gap-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-wrap items-center justify-center gap-4">
+                            <button
+                              onClick={handleDownloadImage}
+                              className="flex-1 min-w-[200px] flex flex-col items-center justify-center gap-1 px-6 py-4 rounded-2xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20 relative group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <ImageIcon size={22} />
+                                <span className="text-lg">Enregistrer en Image</span>
+                              </div>
+                              <span className="text-[10px] opacity-90 font-medium uppercase tracking-widest">Format recommandé • Ultra-rapide</span>
+                              <div className="absolute -top-2 -right-2 bg-white text-[var(--color-brand-accent)] text-[9px] px-2 py-0.5 rounded-full font-black shadow-sm border border-[var(--color-brand-accent)]/20 animate-bounce">
+                                CONSEILLÉ
+                              </div>
+                            </button>
+                            
+                            <button
+                              onClick={handleDownloadPdf}
+                              className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border)] transition-all text-sm"
+                            >
+                              <Download size={18} />
+                              Enregistrer en PDF
+                            </button>
+                          </div>
+
+                          <p className="text-[10px] text-center text-[var(--text-secondary)] px-4 leading-relaxed">
+                            <Sparkles size={10} className="inline mr-1 text-amber-500" />
+                            L'enregistrement en <strong>Image</strong> est optimisé pour l'écran d'accueil, le partage instantané et la future fonctionnalité <strong>OCR</strong>.
+                          </p>
                         </div>
 
                         {Capacitor.isNativePlatform() && (
                           <button
                             onClick={handleShare}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-black text-white hover:brightness-95 transition-all"
+                            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold bg-black text-white hover:brightness-95 transition-all shadow-xl"
                           >
                             <Send size={20} />
                             Partager l'EDT
@@ -1379,6 +1435,37 @@ export default function App() {
                       />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
+                  </div>
+                  <div className="h-px bg-[var(--border)]" />
+
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-[var(--color-brand-accent)]">
+                      <Zap size={18} />
+                      <p className="font-bold">Pourquoi privilégier l'image ?</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <Scan size={14} className="text-amber-500" />
+                          Analyse IA (OCR)
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]">Seules les images permettent d'extraire le texte structuré de votre emploi du temps.</p>
+                      </div>
+                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <Layout size={14} className="text-blue-500" />
+                          Widget Accueil
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]">Les images s'affichent instantanément sur votre écran d'accueil sans chargement.</p>
+                      </div>
+                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
+                        <div className="flex items-center gap-2 text-xs font-bold">
+                          <Share2 size={14} className="text-green-500" />
+                          Partage Facile
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)]">Plus léger et compatible avec toutes les messageries (WhatsApp, Messenger, etc.).</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1747,6 +1834,65 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
+
+          {/* OCR Modal */}
+          <AnimatePresence>
+            {isOCRModalOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                  className="bg-[var(--bg)] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+                >
+                  <div className="p-6 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)]">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
+                        <Sparkles size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Analyse IA (OCR)</h3>
+                        <p className="text-xs text-[var(--text-secondary)]">Texte extrait et structuré</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsOCRModalOpen(false)}
+                      className="p-2 rounded-full hover:bg-black/5 transition-all"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-auto p-6">
+                    <div className="bg-[var(--surface)] p-4 rounded-2xl border border-[var(--border)] font-mono text-sm whitespace-pre-wrap leading-relaxed">
+                      {ocrText}
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 border-t border-[var(--border)] flex gap-3">
+                    <button 
+                      onClick={copyToClipboard}
+                      className="flex-1 py-3 bg-[var(--text)] text-[var(--bg)] rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+                    >
+                      {isCopied ? <Check size={18} /> : <Copy size={18} />}
+                      {isCopied ? 'Copié !' : 'Copier le texte'}
+                    </button>
+                    <button 
+                      onClick={() => setIsOCRModalOpen(false)}
+                      className="flex-1 py-3 bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] rounded-xl font-bold hover:bg-[var(--border)] transition-all"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
       {/* Fullscreen Viewer Modal */}
       <AnimatePresence>
