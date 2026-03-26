@@ -44,29 +44,31 @@ interface Notification {
 
 function Toast({ message, type, onDismiss }: { message: string, type: 'success' | 'error' | 'info', onDismiss: () => void, key?: string }) {
   useEffect(() => {
-    const timer = setTimeout(onDismiss, 5000);
+    const timer = setTimeout(onDismiss, 4000);
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
-  const bgColor = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    info: 'bg-blue-500'
+  const iconColor = {
+    success: 'text-emerald-500',
+    error: 'text-rose-500',
+    info: 'text-sky-500'
   }[type];
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 50, scale: 0.9 }}
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className={cn("fixed bottom-24 left-1/2 -translate-x-1/2 px-6 py-3 rounded-2xl text-white font-bold shadow-2xl z-[9999] flex items-center gap-3 pointer-events-auto", bgColor)}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      className="px-3.5 py-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-full text-[var(--text)] text-xs font-semibold shadow-lg flex items-center gap-2.5 pointer-events-auto min-w-[180px] max-w-[85vw]"
     >
-      {type === 'success' && <CheckCircle2 size={20} />}
-      {type === 'error' && <Bug size={20} />}
-      {type === 'info' && <Loader2 size={20} className="animate-spin" />}
-      <span>{message}</span>
-      <button onClick={onDismiss} className="ml-2 hover:opacity-70 transition-opacity">
-        <X size={16} />
+      <div className={cn("shrink-0", iconColor)}>
+        {type === 'success' && <CheckCircle2 size={16} />}
+        {type === 'error' && <Bug size={16} />}
+        {type === 'info' && <Loader2 size={16} className="animate-spin" />}
+      </div>
+      <span className="flex-1 truncate leading-none">{message}</span>
+      <button onClick={onDismiss} className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all opacity-30 hover:opacity-100">
+        <X size={12} />
       </button>
     </motion.div>
   );
@@ -1611,7 +1613,7 @@ export default function App() {
       </nav>
 
       {/* Notifications */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none flex flex-col items-center gap-2">
         <AnimatePresence>
           {notifications.map(n => (
             <Toast key={n.id} message={n.message} type={n.type} onDismiss={() => removeNotification(n.id)} />
