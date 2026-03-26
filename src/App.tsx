@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -218,6 +218,7 @@ export default function App() {
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [libraryFiles, setLibraryFiles] = useState<{ name: string, type: 'image' | 'pdf', data?: string, uri?: string }[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+  const [viewerFile, setViewerFile] = useState<{ name: string, type: 'image' | 'pdf', data: string } | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -313,7 +314,7 @@ export default function App() {
     }
   }, [activeTab]);
 
-  const handleViewLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
+  const handleEditLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
     if (file.data) {
       setPreview(file.data);
       setFileType(file.type === 'pdf' ? 'application/pdf' : 'image/png');
@@ -335,6 +336,56 @@ export default function App() {
         console.error('Error reading file:', e);
         addNotification('Erreur lors de la lecture du fichier.', 'error');
       }
+    }
+  };
+
+  const handleViewLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
+    if (file.data) {
+      setViewerFile({ name: file.name, type: file.type, data: file.data });
+      return;
+    }
+
+    if (file.uri) {
+      try {
+        const contents = await Filesystem.readFile({
+          path: `EDT/${file.name}`,
+          directory: Directory.Documents,
+        });
+        const dataUrl = `data:${file.type === 'pdf' ? 'application/pdf' : 'image/png'};base64,${contents.data}`;
+        setViewerFile({ name: file.name, type: file.type, data: dataUrl });
+      } catch (e) {
+        console.error('Error reading file:', e);
+        addNotification('Erreur lors de la lecture du fichier.', 'error');
+      }
+    }
+  };
+
+  const handleDeleteLibraryFile = async (file: { name: string, type: 'image' | 'pdf', uri?: string }) => {
+    if (!window.confirm('Voulez-vous vraiment supprimer cet emploi du temps ?')) return;
+
+    if (!Capacitor.isNativePlatform()) {
+      if (lastSavedEDT?.name === file.name) {
+        setLastSavedEDT(null);
+        localStorage.removeItem('smartedt_last_saved');
+        setLibraryFiles([]);
+      }
+      return;
+    }
+
+    try {
+      await Filesystem.deleteFile({
+        path: `EDT/${file.name}`,
+        directory: Directory.Documents,
+      });
+      addNotification('Fichier supprimé.', 'success');
+      loadLibraryFiles();
+      if (lastSavedEDT?.name === file.name) {
+        setLastSavedEDT(null);
+        localStorage.removeItem('smartedt_last_saved');
+      }
+    } catch (e) {
+      console.error('Error deleting file:', e);
+      addNotification('Erreur lors de la suppression.', 'error');
     }
   };
 
@@ -849,8 +900,19 @@ export default function App() {
                       {lastSavedEDT.name.includes('_') ? new Date(parseInt(lastSavedEDT.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
                     </p>
                   </div>
-                  <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
-                    <Maximize2 size={18} />
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleViewLibraryFile(lastSavedEDT); }}
+                      className="p-2 rounded-full bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm"
+                    >
+                      <Eye size={18} />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleEditLibraryFile(lastSavedEDT); }}
+                      className="p-2 rounded-full bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm"
+                    >
+                      <Edit2 size={18} />
+                    </button>
                   </div>
                 </motion.div>
               )}
@@ -859,18 +921,22 @@ export default function App() {
                 <div className="w-full flex flex-col gap-4">
                   <div className="flex justify-between items-center">
                     <h2 className="text-xl font-bold">Aperçu du document</h2>
-                    <button 
-                      onClick={() => {
-                        setPreview(null);
-                        setProcessedPreview(null);
-                        setPdfForSelection(null);
-                        setIsPageSelectorOpen(false);
-                      }} 
-                      className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl font-medium transition-colors shadow-sm appearance-none -webkit-tap-highlight-color-transparent"
-                    >
-                      <X size={18} />
-                      Changer de fichier
-                    </button>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          if (window.confirm('Voulez-vous vraiment réinitialiser et choisir un nouveau fichier ?')) {
+                            setPreview(null);
+                            setProcessedPreview(null);
+                            setPdfForSelection(null);
+                            setIsPageSelectorOpen(false);
+                          }
+                        }} 
+                        className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl font-bold transition-all shadow-sm"
+                      >
+                        <RotateCcw size={18} />
+                        Réinitialiser
+                      </button>
+                    </div>
                   </div>
                   
                   <div 
@@ -1026,8 +1092,7 @@ export default function App() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      onClick={() => handleViewLibraryFile(file)}
-                      className="group p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] hover:border-[var(--color-brand-accent)] transition-all cursor-pointer flex items-center gap-4"
+                      className="group p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] hover:border-[var(--color-brand-accent)] transition-all flex items-center gap-4"
                     >
                       <div className="w-14 h-14 rounded-2xl bg-black/5 flex items-center justify-center shrink-0 overflow-hidden border border-black/5">
                         {file.type === 'pdf' ? (
@@ -1049,8 +1114,28 @@ export default function App() {
                           {file.type} • {file.name.includes('_') ? new Date(parseInt(file.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
                         </p>
                       </div>
-                      <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
-                        <Maximize2 size={16} />
+                      <div className="flex gap-1.5">
+                        <button 
+                          onClick={() => handleViewLibraryFile(file)}
+                          className="p-2 rounded-xl bg-white hover:bg-green-500 hover:text-white transition-all shadow-sm border border-[var(--border)]"
+                          title="Lire (Aperçu)"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleEditLibraryFile(file)}
+                          className="p-2 rounded-xl bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm border border-[var(--border)]"
+                          title="Modifier (Continuer l'édition)"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteLibraryFile(file)}
+                          className="p-2 rounded-xl bg-white hover:bg-red-500 hover:text-white transition-all shadow-sm border border-[var(--border)]"
+                          title="Réinitialiser / Supprimer"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </motion.div>
                   ))}
@@ -1533,6 +1618,68 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Fullscreen Viewer Modal */}
+      <AnimatePresence>
+        {viewerFile && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] bg-black flex flex-col"
+          >
+            <div className="p-4 flex justify-between items-center bg-black/50 backdrop-blur-md text-white">
+              <div className="min-w-0">
+                <p className="font-bold truncate text-sm">{viewerFile.name.split('/').pop()}</p>
+                <p className="text-[10px] opacity-70 uppercase tracking-widest">Mode Lecture</p>
+              </div>
+              <button 
+                onClick={() => setViewerFile(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-all"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+              {viewerFile.type === 'pdf' ? (
+                <div className="w-full h-full bg-white rounded-xl overflow-hidden">
+                  <iframe 
+                    src={viewerFile.data} 
+                    className="w-full h-full border-none"
+                    title="PDF Viewer"
+                  />
+                </div>
+              ) : (
+                <img 
+                  src={viewerFile.data} 
+                  alt="Viewer" 
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                />
+              )}
+            </div>
+
+            <div className="p-6 bg-black/50 backdrop-blur-md flex justify-center gap-4">
+              <button 
+                onClick={() => {
+                  handleEditLibraryFile(viewerFile);
+                  setViewerFile(null);
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-[var(--color-brand-accent)] text-white rounded-xl font-bold"
+              >
+                <Edit2 size={18} />
+                Modifier
+              </button>
+              <button 
+                onClick={() => setViewerFile(null)}
+                className="px-6 py-3 bg-white/10 text-white rounded-xl font-bold"
+              >
+                Fermer
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Page Selector Modal for Multi-page PDF */}
       <AnimatePresence>
