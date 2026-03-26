@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -195,7 +195,11 @@ export default function App() {
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'library' | 'account' | 'settings' | 'feedback'>('home');
+  const [lastSavedEDT, setLastSavedEDT] = useState<{ name: string, type: 'image' | 'pdf', data: string } | null>(() => {
+    const saved = localStorage.getItem('smartedt_last_saved');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [autoRotateEnabled, setAutoRotateEnabled] = useState(() => {
     const saved = localStorage.getItem('smartedt_autorotate');
     return saved ? JSON.parse(saved) : true;
@@ -212,6 +216,8 @@ export default function App() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('33600000000');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [libraryFiles, setLibraryFiles] = useState<{ name: string, type: 'image' | 'pdf', data?: string, uri?: string }[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -263,6 +269,72 @@ export default function App() {
       handleFirestoreError(error, OperationType.WRITE, 'configs/global');
     } finally {
       setIsSavingConfig(false);
+    }
+  };
+
+  const loadLibraryFiles = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      // On web, we only have the last saved one from localStorage
+      if (lastSavedEDT) {
+        setLibraryFiles([lastSavedEDT]);
+      }
+      return;
+    }
+
+    setIsLoadingLibrary(true);
+    try {
+      const result = await Filesystem.readdir({
+        path: 'EDT',
+        directory: Directory.Documents,
+      });
+
+      const files = await Promise.all(result.files.map(async (file) => {
+        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+        return {
+          name: file.name,
+          type: (isPdf ? 'pdf' : 'image') as 'pdf' | 'image',
+          uri: file.uri
+        };
+      }));
+
+      setLibraryFiles(files.sort((a, b) => b.name.localeCompare(a.name)));
+    } catch (e) {
+      console.error('Error loading library:', e);
+      // If directory doesn't exist yet, it's fine
+      setLibraryFiles([]);
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'library') {
+      loadLibraryFiles();
+    }
+  }, [activeTab]);
+
+  const handleViewLibraryFile = async (file: { name: string, type: 'image' | 'pdf', data?: string, uri?: string }) => {
+    if (file.data) {
+      setPreview(file.data);
+      setFileType(file.type === 'pdf' ? 'application/pdf' : 'image/png');
+      setActiveTab('home');
+      return;
+    }
+
+    if (file.uri) {
+      try {
+        const contents = await Filesystem.readFile({
+          path: `EDT/${file.name}`,
+          directory: Directory.Documents,
+        });
+        const dataUrl = `data:${file.type === 'pdf' ? 'application/pdf' : 'image/png'};base64,${contents.data}`;
+        setPreview(dataUrl);
+        setFileType(file.type === 'pdf' ? 'application/pdf' : 'image/png');
+        setActiveTab('home');
+      } catch (e) {
+        console.error('Error reading file:', e);
+        addNotification('Erreur lors de la lecture du fichier.', 'error');
+      }
     }
   };
 
@@ -523,6 +595,10 @@ export default function App() {
             recursive: true
           });
 
+          const lastSaved = { name: fileName, type: 'pdf' as const, data: `data:application/pdf;base64,${pdfBase64}` };
+          setLastSavedEDT(lastSaved);
+          localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
+
           addNotification(`PDF enregistré dans le dossier EDT !`, 'success');
         } catch (e: any) {
           console.error('PDF Native Save Error:', e);
@@ -558,6 +634,10 @@ export default function App() {
           directory: Directory.Documents, // Save to Documents/EDT folder
           recursive: true
         });
+
+        const lastSaved = { name: fileName, type: 'image' as const, data: processedPreview };
+        setLastSavedEDT(lastSaved);
+        localStorage.setItem('smartedt_last_saved', JSON.stringify(lastSaved));
 
         addNotification(`Image enregistrée dans le dossier EDT !`, 'success');
       } catch (e: any) {
@@ -744,6 +824,35 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="w-full space-y-8"
             >
+              {/* Last Saved Widget */}
+              {lastSavedEDT && !preview && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="w-full p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] shadow-sm flex items-center gap-4 cursor-pointer hover:bg-[var(--border)] transition-all group"
+                  onClick={() => handleViewLibraryFile(lastSavedEDT)}
+                >
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/5 flex items-center justify-center shrink-0 border border-black/5">
+                    {lastSavedEDT.type === 'image' ? (
+                      <img src={lastSavedEDT.data} alt="Dernier EDT" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-red-500">
+                        <ImageIcon size={24} />
+                        <span className="text-[8px] font-bold">PDF</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-[var(--color-brand-accent)] uppercase tracking-wider mb-0.5">Dernier enregistré</p>
+                    <p className="font-bold truncate text-sm">{lastSavedEDT.name.split('/').pop()}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">Cliquez pour ouvrir rapidement</p>
+                  </div>
+                  <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
+                    <Maximize2 size={18} />
+                  </div>
+                </motion.div>
+              )}
+
               {preview ? (
                 <div className="w-full flex flex-col gap-4">
                   <div className="flex justify-between items-center">
@@ -884,6 +993,83 @@ export default function App() {
                       <p className="text-sm text-[var(--text-secondary)]">PNG, JPG ou PDF jusqu'à 10MB</p>
                     </div>
                   </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'library' && (
+            <motion.div
+              key="library-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full space-y-6"
+            >
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold">Mes EDTs</h2>
+                <p className="text-sm text-[var(--text-secondary)]">Retrouvez tous vos emplois du temps enregistrés.</p>
+              </div>
+
+              {isLoadingLibrary ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
+                  <p className="text-sm font-medium">Chargement de votre bibliothèque...</p>
+                </div>
+              ) : libraryFiles.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {libraryFiles.map((file, idx) => (
+                    <motion.div
+                      key={file.name}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      onClick={() => handleViewLibraryFile(file)}
+                      className="group p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] hover:border-[var(--color-brand-accent)] transition-all cursor-pointer flex items-center gap-4"
+                    >
+                      <div className="w-14 h-14 rounded-2xl bg-black/5 flex items-center justify-center shrink-0 overflow-hidden border border-black/5">
+                        {file.type === 'pdf' ? (
+                          <div className="text-red-500 flex flex-col items-center">
+                            <ImageIcon size={20} />
+                            <span className="text-[8px] font-bold">PDF</span>
+                          </div>
+                        ) : (
+                          file.data ? (
+                            <img src={file.data} alt={file.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <ImageIcon size={24} className="text-[var(--text-secondary)]" />
+                          )
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate">{file.name.split('/').pop()}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] uppercase font-mono">
+                          {file.type} • {file.name.includes('_') ? new Date(parseInt(file.name.split('_')[1])).toLocaleDateString() : 'Fichier'}
+                        </p>
+                      </div>
+                      <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
+                        <Maximize2 size={16} />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 gap-6 text-center">
+                  <div className="w-20 h-20 bg-[var(--surface)] rounded-full flex items-center justify-center text-[var(--text-secondary)]">
+                    <Layers size={40} />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="font-bold text-lg">Votre bibliothèque est vide</p>
+                    <p className="text-sm text-[var(--text-secondary)] max-w-[250px]">
+                      Enregistrez vos emplois du temps modifiés pour les retrouver ici.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setActiveTab('home')}
+                    className="px-8 py-3 bg-[var(--color-brand-accent)] text-white rounded-xl font-bold shadow-lg shadow-[var(--color-brand-accent)]/20"
+                  >
+                    Commencer
+                  </button>
                 </div>
               )}
             </motion.div>
@@ -1290,6 +1476,16 @@ export default function App() {
           >
             <Calendar size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Accueil</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('library')}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
+              activeTab === 'library' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
+            )}
+          >
+            <Layers size={22} strokeWidth={activeTab === 'library' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold">Mes EDTs</span>
           </button>
           <button 
             onClick={() => setActiveTab('account')}
