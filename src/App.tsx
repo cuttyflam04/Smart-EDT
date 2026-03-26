@@ -962,8 +962,23 @@ export default function App() {
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEditLibraryFile(lastSavedEDT); }}
                       className="p-2 rounded-full bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm"
+                      title="Modifier"
                     >
                       <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (window.confirm('Voulez-vous retirer ce fichier de l\'aperçu rapide ? (Le fichier restera dans votre bibliothèque)')) {
+                          setLastSavedEDT(null);
+                          localStorage.removeItem('smartedt_last_saved');
+                          addNotification('Aperçu nettoyé.', 'info');
+                        }
+                      }}
+                      className="p-2 rounded-full bg-white hover:bg-rose-500 hover:text-white transition-all shadow-sm text-rose-500"
+                      title="Nettoyer l'aperçu"
+                    >
+                      <Trash2 size={18} />
                     </button>
                   </div>
                 </motion.div>
