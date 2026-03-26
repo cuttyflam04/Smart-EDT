@@ -845,7 +845,9 @@ export default function App() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-bold text-[var(--color-brand-accent)] uppercase tracking-wider mb-0.5">Dernier enregistré</p>
                     <p className="font-bold truncate text-sm">{lastSavedEDT.name.split('/').pop()}</p>
-                    <p className="text-xs text-[var(--text-secondary)]">Cliquez pour ouvrir rapidement</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-mono uppercase">
+                      {lastSavedEDT.name.includes('_') ? new Date(parseInt(lastSavedEDT.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
+                    </p>
                   </div>
                   <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
                     <Maximize2 size={18} />
@@ -1044,7 +1046,7 @@ export default function App() {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm truncate">{file.name.split('/').pop()}</p>
                         <p className="text-[10px] text-[var(--text-secondary)] uppercase font-mono">
-                          {file.type} • {file.name.includes('_') ? new Date(parseInt(file.name.split('_')[1])).toLocaleDateString() : 'Fichier'}
+                          {file.type} • {file.name.includes('_') ? new Date(parseInt(file.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
                         </p>
                       </div>
                       <div className="p-2 rounded-full bg-white group-hover:bg-[var(--color-brand-accent)] group-hover:text-white transition-all shadow-sm">
