@@ -48,10 +48,16 @@ function Toast({ message, type, onDismiss }: { message: string, type: 'success' 
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
+  const styles = {
+    success: 'bg-emerald-950/90 text-emerald-50 border-emerald-500/20',
+    error: 'bg-rose-950/90 text-rose-50 border-rose-500/20',
+    info: 'bg-sky-950/90 text-sky-50 border-sky-500/20'
+  }[type];
+
   const iconColor = {
-    success: 'text-emerald-500',
-    error: 'text-rose-500',
-    info: 'text-sky-500'
+    success: 'text-emerald-400',
+    error: 'text-rose-400',
+    info: 'text-sky-400'
   }[type];
 
   return (
@@ -59,7 +65,10 @@ function Toast({ message, type, onDismiss }: { message: string, type: 'success' 
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
-      className="px-3.5 py-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl border border-black/5 dark:border-white/10 rounded-full text-[var(--text)] text-xs font-semibold shadow-lg flex items-center gap-2.5 pointer-events-auto min-w-[180px] max-w-[85vw]"
+      className={cn(
+        "px-3.5 py-2 backdrop-blur-xl border rounded-full text-xs font-semibold shadow-2xl flex items-center gap-2.5 pointer-events-auto min-w-[180px] max-w-[85vw]",
+        styles
+      )}
     >
       <div className={cn("shrink-0", iconColor)}>
         {type === 'success' && <CheckCircle2 size={16} />}
@@ -67,7 +76,7 @@ function Toast({ message, type, onDismiss }: { message: string, type: 'success' 
         {type === 'info' && <Loader2 size={16} className="animate-spin" />}
       </div>
       <span className="flex-1 truncate leading-none">{message}</span>
-      <button onClick={onDismiss} className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-all opacity-30 hover:opacity-100">
+      <button onClick={onDismiss} className="p-1 hover:bg-white/10 rounded-full transition-all opacity-40 hover:opacity-100">
         <X size={12} />
       </button>
     </motion.div>
