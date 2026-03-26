@@ -514,16 +514,16 @@ export default function App() {
           }
 
           const pdfBase64 = pdf.output('datauristring').split(',')[1];
-          const fileName = `SmartEDT_${Date.now()}.pdf`;
+          const fileName = `EDT/SmartEDT_${Date.now()}.pdf`;
           
           await Filesystem.writeFile({
             path: fileName,
             data: pdfBase64,
-            directory: Directory.Documents, // Save to Documents folder
+            directory: Directory.Documents, // Save to Documents/EDT folder
             recursive: true
           });
 
-          addNotification(`PDF enregistré avec succès dans vos Documents !`, 'success');
+          addNotification(`PDF enregistré dans le dossier EDT !`, 'success');
         } catch (e: any) {
           console.error('PDF Native Save Error:', e);
           addNotification("Erreur lors de la sauvegarde du PDF.", 'error');
@@ -531,8 +531,8 @@ export default function App() {
         }
       } else {
         const pdfBlob = pdf.output('blob');
-        const success = await saveFile(pdfBlob, 'EDT_modifie.pdf', 'application/pdf');
-        if (success) addNotification('PDF prêt !', 'success');
+        const success = await saveFile(pdfBlob, `EDT_${Date.now()}.pdf`, 'application/pdf');
+        if (success) addNotification('PDF enregistré dans le dossier EDT !', 'success');
       }
     };
     img.src = processedPreview;
@@ -549,29 +549,29 @@ export default function App() {
           await Filesystem.requestPermissions();
         }
 
-        const fileName = `SmartEDT_${Date.now()}.png`;
+        const fileName = `EDT/SmartEDT_${Date.now()}.png`;
         const base64Data = processedPreview.split(',')[1];
         
         await Filesystem.writeFile({
           path: fileName,
           data: base64Data,
-          directory: Directory.Documents, // Save to Documents folder
+          directory: Directory.Documents, // Save to Documents/EDT folder
           recursive: true
         });
 
-        addNotification(`Image enregistrée avec succès dans vos Documents !`, 'success');
+        addNotification(`Image enregistrée dans le dossier EDT !`, 'success');
       } catch (e: any) {
         console.error('Save error:', e);
         addNotification("Erreur lors de la sauvegarde de l'image.", 'error');
         const response = await fetch(processedPreview);
         const blob = await response.blob();
-        await saveFile(blob, 'EDT_modifie.png', 'image/png');
+        await saveFile(blob, `EDT_${Date.now()}.png`, 'image/png');
       }
     } else {
       const response = await fetch(processedPreview);
       const blob = await response.blob();
-      const success = await saveFile(blob, 'EDT_modifie.png', 'image/png');
-      if (success) addNotification('Image prête !', 'success');
+      const success = await saveFile(blob, `EDT_${Date.now()}.png`, 'image/png');
+      if (success) addNotification('Image enregistrée dans le dossier EDT !', 'success');
     }
   };
 
