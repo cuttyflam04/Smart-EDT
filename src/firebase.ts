@@ -1,18 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { initializeFirestore, doc, getDoc, setDoc, onSnapshot, getDocFromServer, serverTimestamp } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, where, getDocFromServer, Timestamp } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
-  ignoreUndefinedProperties: true,
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 
-// Error handling for Firestore
+// Error Handling Spec for Firestore Operations
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -59,7 +56,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  };
+  }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
@@ -67,56 +64,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Test connection
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    await getDocFromServer(doc(db, 'configs', 'global'));
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
+      console.error("Please check your Firebase configuration. The client is offline.");
     }
   }
 }
 testConnection();
 
-export const loginWithGoogle = async () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  
-  try {
-    if (isMobile) {
-      await signInWithRedirect(auth, googleProvider);
-      return null;
-    }
-
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error: any) {
-    console.error("Login error:", error);
-    
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
-      console.log("Popup issue, falling back to redirect...");
-      try {
-        await signInWithRedirect(auth, googleProvider);
-      } catch (redirectError) {
-        console.error("Login error (redirect fallback):", redirectError);
-        throw redirectError;
-      }
-    } else {
-      throw error;
-    }
-  }
-};
-
-// Handle redirect result
-export const handleAuthRedirect = async () => {
-  try {
-    const result = await getRedirectResult(auth);
-    if (result) {
-      console.log("Redirect login successful:", result.user.email);
-      return result.user;
-    }
-  } catch (error: any) {
-    console.error("Redirect result error:", error);
-    if (error.code === 'auth/unauthorized-domain') {
-      console.error("Domain not authorized for redirect:", window.location.origin);
-    }
-  }
-  return null;
-};
+export { signInWithPopup, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, onSnapshot, query, where, Timestamp };
+export type { FirebaseUser };

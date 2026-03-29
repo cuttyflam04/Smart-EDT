@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, Check, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Zap, Layout, Share2 } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -22,9 +22,9 @@ import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
-import { auth, db, loginWithGoogle, handleAuthRedirect, handleFirestoreError, OperationType } from './firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp, collection, query, orderBy, limit } from 'firebase/firestore';
+import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp } from './firebase';
+import { User as FirebaseUser } from 'firebase/auth';
+import { serverTimestamp, orderBy, limit, getDocs } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -215,7 +215,7 @@ export default function App() {
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'library' | 'account' | 'settings' | 'feedback'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
   const [lastSavedEDT, setLastSavedEDT] = useState<{ name: string, type: 'image' | 'pdf', data?: string } | null>(() => {
     const saved = localStorage.getItem('smartedt_last_saved');
     return saved ? JSON.parse(saved) : null;
@@ -233,6 +233,12 @@ export default function App() {
 
   // Firebase state
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [studentSchedule, setStudentSchedule] = useState<any>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [adminScheduleUpload, setAdminScheduleUpload] = useState<string>('');
+  const [adminClassId, setAdminClassId] = useState<string>('');
+  const [isUploadingSchedule, setIsUploadingSchedule] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('33600000000');
   const [isSavingConfig, setIsSavingConfig] = useState(false);
@@ -260,13 +266,50 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      if (u) {
+        // Listen to user profile
+        const userDocRef = doc(db, 'users', u.uid);
+        onSnapshot(userDocRef, (snap) => {
+          if (snap.exists()) {
+            setUserProfile(snap.data());
+          } else {
+            // Create initial profile
+            setDoc(userDocRef, {
+              displayName: u.displayName,
+              email: u.email,
+              photoURL: u.photoURL,
+              role: 'student',
+              createdAt: serverTimestamp()
+            }, { merge: true });
+          }
+        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${u.uid}`));
+      } else {
+        setUserProfile(null);
+      }
     });
-    
-    // Handle redirect result for mobile
-    handleAuthRedirect();
     
     return () => unsubscribe();
   }, []);
+
+  // Listen to schedules based on user classId
+  useEffect(() => {
+    if (userProfile?.classId) {
+      const q = query(
+        collection(db, 'schedules'),
+        where('classId', '==', userProfile.classId),
+        orderBy('updatedAt', 'desc'),
+        limit(1)
+      );
+      const unsubscribe = onSnapshot(q, (snap) => {
+        if (!snap.empty) {
+          setStudentSchedule(snap.docs[0].data());
+        } else {
+          setStudentSchedule(null);
+        }
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'schedules'));
+      return () => unsubscribe();
+    }
+  }, [userProfile?.classId]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, 'configs', 'global'), (snapshot) => {
@@ -285,11 +328,25 @@ export default function App() {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
     try {
-      await loginWithGoogle();
+      await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Login failed:", error);
+      addNotification("Échec de la connexion. Veuillez réessayer.", "error");
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleUpdateClassId = async (classId: string) => {
+    if (!user) return;
+    setIsUpdatingProfile(true);
+    try {
+      await setDoc(doc(db, 'users', user.uid), { classId }, { merge: true });
+      addNotification("Classe mise à jour !", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -307,6 +364,34 @@ export default function App() {
       handleFirestoreError(error, OperationType.WRITE, 'configs/global');
     } finally {
       setIsSavingConfig(false);
+    }
+  };
+
+  const handleUploadSchedule = async () => {
+    if (!isAdmin || !adminClassId || !adminScheduleUpload) {
+      addNotification("Veuillez remplir tous les champs admin.", "error");
+      return;
+    }
+    
+    setIsUploadingSchedule(true);
+    try {
+      const scheduleData = JSON.parse(adminScheduleUpload);
+      const scheduleDocRef = doc(collection(db, 'schedules'));
+      await setDoc(scheduleDocRef, {
+        classId: adminClassId.toUpperCase(),
+        ...scheduleData,
+        updatedAt: serverTimestamp(),
+        authorUid: user?.uid
+      });
+      
+      addNotification(`EDT pour ${adminClassId} mis en ligne !`, "success");
+      setAdminScheduleUpload('');
+      setAdminClassId('');
+    } catch (error) {
+      console.error("Upload error:", error);
+      addNotification("Erreur lors de l'upload. Vérifiez le format JSON.", "error");
+    } finally {
+      setIsUploadingSchedule(false);
     }
   };
 
@@ -346,7 +431,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeTab === 'library') {
+    if (activeTab === 'account') {
       loadLibraryFiles();
     }
   }, [activeTab]);
@@ -849,8 +934,6 @@ export default function App() {
     }
   };
 
-  const [isOCRModalOpen, setIsOCRModalOpen] = useState(false);
-
   const handleScanText = async () => {
     if (!preview) return;
     
@@ -871,32 +954,11 @@ export default function App() {
       });
       
       setOcrText(text);
-      setIsOCRModalOpen(true);
-      addNotification("Analyse IA terminée !", "success");
     } catch (error) {
       console.error("OCR Error:", error);
-      addNotification("Erreur lors de l'analyse IA.", "error");
+      alert("Erreur lors de l'analyse du texte.");
     } finally {
       setIsScanning(false);
-    }
-  };
-
-  const handleConvertToImage = async (page: number = 1) => {
-    if (!preview || fileType !== 'application/pdf') return;
-    
-    setIsProcessing(true);
-    try {
-      const converted = await convertPdfToImage(preview, page);
-      if (converted) {
-        setProcessedPreview(converted);
-        setFileType('image/png');
-        addNotification("PDF converti en image haute qualité !", "success");
-      }
-    } catch (error) {
-      console.error('Conversion Error:', error);
-      addNotification("Erreur lors de la conversion.", "error");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -1076,12 +1138,15 @@ export default function App() {
                     <div className="flex gap-2">
                       <button 
                         onClick={() => {
-                          if (window.confirm('Voulez-vous vraiment réinitialiser et choisir un nouveau fichier ?')) {
-                            setPreview(null);
-                            setProcessedPreview(null);
-                            setPdfForSelection(null);
-                            setIsPageSelectorOpen(false);
-                          }
+                          setPreview(null);
+                          setProcessedPreview(null);
+                          setPdfForSelection(null);
+                          setIsPageSelectorOpen(false);
+                          setFileType(null);
+                          setNumPages(null);
+                          setPdfError(null);
+                          setIsProcessing(false);
+                          addNotification("Espace d'édition réinitialisé", "success");
                         }} 
                         className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl font-bold transition-all shadow-sm"
                       >
@@ -1095,17 +1160,6 @@ export default function App() {
                     ref={pdfContainerRef}
                     className="w-full border-2 border-[var(--border)] rounded-3xl overflow-hidden bg-[var(--surface)] p-4 max-h-[70vh] overflow-y-auto"
                   >
-                    {fileType === 'application/pdf' && !processedPreview && (
-                      <div className="absolute top-4 right-4 z-10">
-                        <button
-                          onClick={() => handleConvertToImage(1)}
-                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-xl font-bold shadow-lg hover:bg-amber-600 transition-all animate-pulse"
-                        >
-                          <Zap size={16} />
-                          Optimiser en Image
-                        </button>
-                      </div>
-                    )}
                     {fileType === 'application/pdf' && !processedPreview ? (
                       <Document 
                         file={preview} 
@@ -1156,69 +1210,47 @@ export default function App() {
                       )}
                     </button>
 
-                    <button
-                      onClick={handleScanText}
-                      disabled={isScanning || (fileType === 'application/pdf' && !processedPreview)}
-                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
-                    >
-                      {isScanning ? (
-                        <>
-                          <Loader2 size={20} className="animate-spin text-amber-600" />
-                          <span className="text-amber-600">Analyse IA...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Scan size={20} className="text-[var(--text-secondary)]" />
-                          <div className="flex flex-col items-start">
-                            <span className="text-[var(--text-secondary)] leading-tight">Extraire le texte (IA)</span>
-                            <span className="text-[8px] text-amber-600 font-medium uppercase tracking-tighter">Exclusif aux images</span>
-                          </div>
-                        </>
-                      )}
-                      {(fileType === 'application/pdf' && !processedPreview) && (
-                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[10px] text-amber-600 font-bold">Convertissez en image d'abord !</span>
+                    {enabledFeatures.ocr && (
+                      <button
+                        onClick={handleScanText}
+                        disabled={true}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
+                      >
+                        <Scan size={20} className="text-[var(--text-secondary)]" />
+                        <span className="text-[var(--text-secondary)]">Scanner le texte</span>
+                        <div className="absolute top-1 right-1">
+                          <WIPBadge />
                         </div>
-                      )}
-                    </button>
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="text-[10px] text-amber-600 font-bold">Bientôt disponible !</span>
+                        </div>
+                      </button>
+                    )}
 
                     {processedPreview && (
-                      <div className="w-full flex flex-col gap-4">
-                        <div className="flex flex-col gap-3">
-                          <div className="flex flex-wrap items-center justify-center gap-4">
-                            <button
-                              onClick={handleDownloadImage}
-                              className="flex-1 min-w-[200px] flex flex-col items-center justify-center gap-1 px-6 py-4 rounded-2xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20 relative group"
-                            >
-                              <div className="flex items-center gap-2">
-                                <ImageIcon size={22} />
-                                <span className="text-lg">Enregistrer en Image</span>
-                              </div>
-                              <span className="text-[10px] opacity-90 font-medium uppercase tracking-widest">Format recommandé • Ultra-rapide</span>
-                              <div className="absolute -top-2 -right-2 bg-white text-[var(--color-brand-accent)] text-[9px] px-2 py-0.5 rounded-full font-black shadow-sm border border-[var(--color-brand-accent)]/20 animate-bounce">
-                                CONSEILLÉ
-                              </div>
-                            </button>
-                            
-                            <button
-                              onClick={handleDownloadPdf}
-                              className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--border)] transition-all text-sm"
-                            >
-                              <Download size={18} />
-                              Enregistrer en PDF
-                            </button>
-                          </div>
-
-                          <p className="text-[10px] text-center text-[var(--text-secondary)] px-4 leading-relaxed">
-                            <Sparkles size={10} className="inline mr-1 text-amber-500" />
-                            L'enregistrement en <strong>Image</strong> est optimisé pour l'écran d'accueil, le partage instantané et la future fonctionnalité <strong>OCR</strong>.
-                          </p>
+                      <div className="w-full flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center justify-center gap-4">
+                          <button
+                            onClick={handleDownloadPdf}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20"
+                          >
+                            <Download size={20} />
+                            Enregistrer PDF
+                          </button>
+                          
+                          <button
+                            onClick={handleDownloadImage}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--border)] transition-all"
+                          >
+                            <ImageIcon size={20} />
+                            Enregistrer Image
+                          </button>
                         </div>
 
                         {Capacitor.isNativePlatform() && (
                           <button
                             onClick={handleShare}
-                            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold bg-black text-white hover:brightness-95 transition-all shadow-xl"
+                            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-black text-white hover:brightness-95 transition-all"
                           >
                             <Send size={20} />
                             Partager l'EDT
@@ -1251,140 +1283,198 @@ export default function App() {
             </motion.div>
           )}
 
-          {activeTab === 'library' && (
-            <motion.div
-              key="library-view"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full space-y-6"
-            >
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold">Mes EDTs</h2>
-                <p className="text-sm text-[var(--text-secondary)]">Retrouvez tous vos emplois du temps enregistrés.</p>
-              </div>
-
-              {isLoadingLibrary ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
-                  <p className="text-sm font-medium">Chargement de votre bibliothèque...</p>
-                </div>
-              ) : libraryFiles.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {libraryFiles.map((file, idx) => (
-                    <motion.div
-                      key={file.name}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="group p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] hover:border-[var(--color-brand-accent)] transition-all flex items-center gap-4"
-                    >
-                      <div className="w-14 h-14 rounded-2xl bg-black/5 flex items-center justify-center shrink-0 overflow-hidden border border-black/5">
-                        {file.type === 'pdf' ? (
-                          <div className="text-red-500 flex flex-col items-center">
-                            <ImageIcon size={20} />
-                            <span className="text-[8px] font-bold">PDF</span>
-                          </div>
-                        ) : (
-                          file.data ? (
-                            <img src={file.data} alt={file.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <ImageIcon size={24} className="text-[var(--text-secondary)]" />
-                          )
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate">{file.name.split('/').pop()}</p>
-                        <p className="text-[10px] text-[var(--text-secondary)] uppercase font-mono">
-                          {file.type} • {file.name.includes('_') ? new Date(parseInt(file.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
-                        </p>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <button 
-                          onClick={() => handleViewLibraryFile(file)}
-                          className="p-2 rounded-xl bg-white hover:bg-green-500 hover:text-white transition-all shadow-sm border border-[var(--border)]"
-                          title="Lire (Aperçu)"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleEditLibraryFile(file)}
-                          className="p-2 rounded-xl bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm border border-[var(--border)]"
-                          title="Modifier (Continuer l'édition)"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteLibraryFile(file)}
-                          className="p-2 rounded-xl bg-white hover:bg-red-500 hover:text-white transition-all shadow-sm border border-[var(--border)]"
-                          title="Réinitialiser / Supprimer"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 gap-6 text-center">
-                  <div className="w-20 h-20 bg-[var(--surface)] rounded-full flex items-center justify-center text-[var(--text-secondary)]">
-                    <Layers size={40} />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-bold text-lg">Votre bibliothèque est vide</p>
-                    <p className="text-sm text-[var(--text-secondary)] max-w-[250px]">
-                      Enregistrez vos emplois du temps modifiés pour les retrouver ici.
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setActiveTab('home')}
-                    className="px-8 py-3 bg-[var(--color-brand-accent)] text-white rounded-xl font-bold shadow-lg shadow-[var(--color-brand-accent)]/20"
-                  >
-                    Commencer
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          )}
-
           {activeTab === 'account' && (
             <motion.div
               key="account-view"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-md space-y-6 text-center"
+              className="w-full max-w-4xl space-y-8"
             >
-              <div className="relative inline-block">
-                <div className="w-24 h-24 bg-black/5 rounded-full flex items-center justify-center mx-auto p-4">
-                  <Logo />
+              {!user ? (
+                <div className="max-w-md mx-auto space-y-6 text-center py-12">
+                  <div className="w-20 h-20 bg-[var(--color-brand-accent)]/10 rounded-full flex items-center justify-center mx-auto text-[var(--color-brand-accent)]">
+                    <User size={40} />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-bold">Connectez-vous</h2>
+                    <p className="text-[var(--text-secondary)]">
+                      Accédez à vos emplois du temps institutionnels et synchronisez vos fichiers sur tous vos appareils.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleLogin}
+                    disabled={isLoggingIn}
+                    className="w-full py-4 bg-[var(--color-brand-accent)] text-white rounded-2xl font-bold shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-3"
+                  >
+                    {isLoggingIn ? <Loader2 size={20} className="animate-spin" /> : <Cpu size={20} />}
+                    Se connecter avec Google
+                  </button>
                 </div>
-                <div className="absolute -top-1 -right-1">
-                  <WIPBadge className="text-[10px] px-2 py-1" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold">Espace Compte</h2>
-                <p className="text-[var(--text-secondary)]">
-                  Nous travaillons sur une synchronisation cloud pour vos emplois du temps !
-                </p>
-              </div>
-              
-              <div className="p-6 bg-amber-50 rounded-3xl border border-amber-100 space-y-4">
-                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-amber-600">
-                  <Sparkles size={24} />
-                </div>
-                <p className="text-sm text-amber-800 font-medium">
-                  Cette fonctionnalité est en cours de développement. Revenez bientôt pour créer votre compte et sauvegarder vos EDT !
-                </p>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Profile Section */}
+                  <div className="lg:col-span-1 space-y-6">
+                    <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-sm text-center">
+                      <div className="relative inline-block mb-4">
+                        <img 
+                          src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
+                          alt="Profile" 
+                          className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-2 border-white rounded-full" />
+                      </div>
+                      <h3 className="text-xl font-bold">{user.displayName}</h3>
+                      <p className="text-sm text-[var(--text-secondary)] mb-6">{user.email}</p>
+                      
+                      <div className="space-y-4 text-left">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase ml-1">Ma Classe / Groupe</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              placeholder="Ex: L3-INFO"
+                              defaultValue={userProfile?.classId || ''}
+                              onBlur={(e) => handleUpdateClassId(e.target.value)}
+                              className="flex-1 px-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-[var(--color-brand-accent)]"
+                            />
+                            {isUpdatingProfile && <Loader2 size={16} className="animate-spin text-[var(--color-brand-accent)] mt-2" />}
+                          </div>
+                        </div>
+                      </div>
 
-              <button 
-                onClick={() => setActiveTab('home')}
-                className="w-full py-4 bg-[var(--surface)] text-[var(--text-secondary)] rounded-2xl font-bold hover:bg-[var(--border)] transition-all"
-              >
-                Retour à l'accueil
-              </button>
+                      <button 
+                        onClick={() => signOut(auth)}
+                        className="mt-8 w-full py-3 text-red-500 font-bold text-sm hover:bg-red-50 rounded-xl transition-all"
+                      >
+                        Déconnexion
+                      </button>
+                    </div>
+
+                    {/* Today's Schedule Mini-View */}
+                    <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-bold flex items-center gap-2">
+                          <Calendar size={18} className="text-[var(--color-brand-accent)]" />
+                          Aujourd'hui
+                        </h4>
+                      </div>
+                      
+                      {!userProfile?.classId ? (
+                        <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
+                          Renseignez votre classe pour voir votre EDT.
+                        </p>
+                      ) : !studentSchedule ? (
+                        <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
+                          Aucun EDT trouvé pour {userProfile.classId}.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {studentSchedule.days?.find((d: any) => d.dayName.toLowerCase() === new Date().toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase())?.slots?.map((slot: any, sidx: number) => (
+                            <div key={sidx} className="p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
+                              <p className="text-[10px] font-bold text-[var(--color-brand-accent)]">{slot.time}</p>
+                              <p className="font-bold text-sm">{slot.subject}</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">{slot.room} • {slot.teacher}</p>
+                            </div>
+                          )) || (
+                            <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
+                              Rien de prévu pour aujourd'hui !
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Library Section */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                      <h3 className="text-2xl font-bold flex items-center gap-3">
+                        <Layers size={24} className="text-[var(--color-brand-accent)]" />
+                        Mes EDTs Importés
+                      </h3>
+                      <button 
+                        onClick={loadLibraryFiles}
+                        className="p-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-all"
+                      >
+                        <RotateCcw size={20} className={isLoadingLibrary ? "animate-spin" : ""} />
+                      </button>
+                    </div>
+
+                    {isLoadingLibrary ? (
+                      <div className="flex flex-col items-center justify-center py-20 gap-4">
+                        <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
+                        <p className="text-[var(--text-secondary)] font-medium">Chargement de votre bibliothèque...</p>
+                      </div>
+                    ) : libraryFiles.length === 0 ? (
+                      <div className="bg-[var(--surface)] border-2 border-dashed border-[var(--border)] rounded-[2.5rem] p-12 text-center space-y-4">
+                        <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mx-auto text-[var(--text-secondary)]">
+                          <FileText size={32} />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-bold text-lg">Votre bibliothèque est vide</p>
+                          <p className="text-sm text-[var(--text-secondary)]">Importez ou créez votre premier emploi du temps pour le voir ici.</p>
+                        </div>
+                        <button 
+                          onClick={() => setActiveTab('home')}
+                          className="px-6 py-2 bg-[var(--color-brand-accent)] text-white rounded-full text-sm font-bold shadow-md"
+                        >
+                          Commencer
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {libraryFiles.map((file, idx) => (
+                          <motion.div
+                            key={file.name + idx}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="group bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-lg transition-all"
+                          >
+                            <div className={cn(
+                              "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
+                              file.type === 'pdf' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
+                            )}>
+                              {file.type === 'pdf' ? <FileText size={24} /> : <ImageIcon size={24} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm truncate">{file.name.split('/').pop()}</p>
+                              <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">
+                                {file.type === 'pdf' ? 'Document PDF' : 'Image PNG'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                onClick={() => handleViewLibraryFile(file)}
+                                className="p-2 hover:bg-[var(--bg)] rounded-xl text-[var(--text-secondary)]"
+                                title="Voir"
+                              >
+                                <Eye size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleEditLibraryFile(file)}
+                                className="p-2 hover:bg-[var(--bg)] rounded-xl text-[var(--text-secondary)]"
+                                title="Modifier"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteLibraryFile(file)}
+                                className="p-2 hover:bg-red-50 rounded-xl text-red-500"
+                                title="Supprimer"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1435,37 +1525,6 @@ export default function App() {
                       />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
-                  </div>
-                  <div className="h-px bg-[var(--border)]" />
-
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--color-brand-accent)]">
-                      <Zap size={18} />
-                      <p className="font-bold">Pourquoi privilégier l'image ?</p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-bold">
-                          <Scan size={14} className="text-amber-500" />
-                          Analyse IA (OCR)
-                        </div>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Seules les images permettent d'extraire le texte structuré de votre emploi du temps.</p>
-                      </div>
-                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-bold">
-                          <Layout size={14} className="text-blue-500" />
-                          Widget Accueil
-                        </div>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Les images s'affichent instantanément sur votre écran d'accueil sans chargement.</p>
-                      </div>
-                      <div className="p-3 bg-white/50 rounded-2xl border border-[var(--border)] space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-bold">
-                          <Share2 size={14} className="text-green-500" />
-                          Partage Facile
-                        </div>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Plus léger et compatible avec toutes les messageries (WhatsApp, Messenger, etc.).</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -1575,6 +1634,53 @@ export default function App() {
                             />
                           </div>
                         )}
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      {/* Schedule Upload */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar size={18} className="text-amber-600" />
+                            <p className="font-bold">Upload Emploi du Temps</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Classe ID (Ex: L3-INFO)</label>
+                            <input 
+                              type="text" 
+                              value={adminClassId}
+                              onChange={(e) => setAdminClassId(e.target.value)}
+                              disabled={!isAdmin}
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
+                              placeholder="ID de la classe"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Données JSON</label>
+                            <textarea 
+                              value={adminScheduleUpload}
+                              onChange={(e) => setAdminScheduleUpload(e.target.value)}
+                              disabled={!isAdmin}
+                              rows={4}
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50 resize-none"
+                              placeholder='{"days": [{"dayName": "Lundi", "slots": [...]}]}'
+                            />
+                          </div>
+
+                          <button 
+                            onClick={handleUploadSchedule}
+                            disabled={!isAdmin || isUploadingSchedule}
+                            className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold text-sm shadow-md hover:brightness-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            {isUploadingSchedule ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
+                            Mettre en ligne l'EDT
+                          </button>
+                        </div>
                       </div>
 
                       <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
@@ -1781,27 +1887,14 @@ export default function App() {
             <span className="text-[10px] font-bold">Accueil</span>
           </button>
           <button 
-            onClick={() => setActiveTab('library')}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
-              activeTab === 'library' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-            )}
-          >
-            <Layers size={22} strokeWidth={activeTab === 'library' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Mes EDTs</span>
-          </button>
-          <button 
             onClick={() => setActiveTab('account')}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300 relative",
+              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-24 transition-all duration-300 relative",
               activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
             <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Compte</span>
-            <div className="absolute -top-1 -right-1">
-              <WIPBadge />
-            </div>
+            <span className="text-[10px] font-bold">Mon Espace</span>
           </button>
           <button 
             onClick={() => setActiveTab('feedback')}
@@ -1834,65 +1927,6 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
-
-          {/* OCR Modal */}
-          <AnimatePresence>
-            {isOCRModalOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-              >
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                  className="bg-[var(--bg)] w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
-                >
-                  <div className="p-6 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface)]">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
-                        <Sparkles size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg">Analyse IA (OCR)</h3>
-                        <p className="text-xs text-[var(--text-secondary)]">Texte extrait et structuré</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setIsOCRModalOpen(false)}
-                      className="p-2 rounded-full hover:bg-black/5 transition-all"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-                  
-                  <div className="flex-1 overflow-auto p-6">
-                    <div className="bg-[var(--surface)] p-4 rounded-2xl border border-[var(--border)] font-mono text-sm whitespace-pre-wrap leading-relaxed">
-                      {ocrText}
-                    </div>
-                  </div>
-                  
-                  <div className="p-6 border-t border-[var(--border)] flex gap-3">
-                    <button 
-                      onClick={copyToClipboard}
-                      className="flex-1 py-3 bg-[var(--text)] text-[var(--bg)] rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-                    >
-                      {isCopied ? <Check size={18} /> : <Copy size={18} />}
-                      {isCopied ? 'Copié !' : 'Copier le texte'}
-                    </button>
-                    <button 
-                      onClick={() => setIsOCRModalOpen(false)}
-                      className="flex-1 py-3 bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] rounded-xl font-bold hover:bg-[var(--border)] transition-all"
-                    >
-                      Fermer
-                    </button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
       {/* Fullscreen Viewer Modal */}
       <AnimatePresence>

@@ -5,12 +5,23 @@ service cloud.firestore {
     // Assumed Data Model
     // ===============================================================
     //
-    // Collection: configs
-    // Document ID: global
+    // Collection: users
+    // Document ID: userId
     // Fields:
-    //   - whatsappNumber: string (required) - The WhatsApp phone number
-    //   - updatedAt: timestamp (optional) - Last update time
-    //   - updatedBy: string (optional) - UID of the updater
+    //   - displayName: string (required)
+    //   - email: string (required, email format)
+    //   - photoURL: string (optional)
+    //   - classId: string (optional)
+    //   - role: string (required, student|admin)
+    //   - createdAt: timestamp (optional)
+    //
+    // Collection: schedules
+    // Document ID: scheduleId
+    // Fields:
+    //   - classId: string (required)
+    //   - weekNumber: int (optional)
+    //   - days: list (required)
+    //   - updatedAt: timestamp (optional)
     //
     // ===============================================================
 
@@ -19,13 +30,48 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
     function isAdmin() {
       return isAuthenticated() &&
-        (request.auth.token.email == "monstertrio04@gmail.com" && request.auth.token.email_verified == true);
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "monstertrio04@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['displayName', 'email', 'role']) &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['student', 'admin'];
+    }
+
+    function isValidSchedule(data) {
+      return data.keys().hasAll(['classId', 'days']) &&
+             data.classId is string &&
+             data.days is list;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'student';
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == resource.data.role || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidSchedule(request.resource.data);
     }
 
     match /configs/global {
-      allow read: if true; // Allow anyone to read the config (server needs it)
+      allow read: if true;
       allow write: if isAdmin();
     }
     
