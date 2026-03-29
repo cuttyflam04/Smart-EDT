@@ -1,12 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, where, getDocFromServer, Timestamp } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, collection, doc, getDoc, setDoc, onSnapshot, query, where, getDocFromServer, Timestamp } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Use initializeFirestore with long polling for better reliability in iframes/proxies
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
+
 export const googleProvider = new GoogleAuthProvider();
 
 // Error Handling Spec for Firestore Operations

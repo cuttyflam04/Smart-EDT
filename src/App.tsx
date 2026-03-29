@@ -341,7 +341,10 @@ export default function App() {
     } catch (error: any) {
       console.error("Login failed:", error);
       
-      if (error.code === 'auth/popup-blocked') {
+      if (error.code === 'auth/popup-closed-by-user') {
+        // Just log it, don't show an error notification as it's a user action
+        console.log("User closed the login popup.");
+      } else if (error.code === 'auth/popup-blocked') {
         addNotification("Popup bloquée. Tentative de redirection...", "info");
         await signInWithRedirect(auth, googleProvider);
       } else if (error.code === 'auth/unauthorized-domain') {
