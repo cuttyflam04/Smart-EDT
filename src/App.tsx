@@ -22,7 +22,7 @@ import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
-import { auth, db, googleProvider, signInWithPopup, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp } from './firebase';
+import { auth, db, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp } from './firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { serverTimestamp, orderBy, limit, getDocs } from 'firebase/firestore';
 
@@ -288,6 +288,14 @@ export default function App() {
       }
     });
     
+    // Handle redirect result for mobile
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect auth error:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        addNotification("Domaine non autorisé dans Firebase Console.", "error");
+      }
+    });
+    
     return () => unsubscribe();
   }, []);
 
@@ -328,10 +336,25 @@ export default function App() {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+      // Use popup by default, but fallback to redirect if needed or on mobile
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
+    } catch (error: any) {
       console.error("Login failed:", error);
-      addNotification("Échec de la connexion. Veuillez réessayer.", "error");
+      if (error.code === 'auth/popup-blocked') {
+        addNotification("Popup bloquée. Veuillez autoriser les popups ou réessayer.", "error");
+        // Try redirect as fallback
+        await signInWithRedirect(auth, googleProvider);
+      } else if (error.code === 'auth/unauthorized-domain') {
+        addNotification("Domaine non autorisé. Vérifiez la console Firebase.", "error");
+      } else {
+        addNotification("Échec de la connexion. Veuillez réessayer.", "error");
+      }
     } finally {
       setIsLoggingIn(false);
     }
