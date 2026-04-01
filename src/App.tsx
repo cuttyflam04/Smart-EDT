@@ -286,13 +286,19 @@ export default function App() {
     getRedirectResult(auth).then((result) => {
       if (result) {
         addLog(`Redirect login success: ${result.user.email}`);
+        addNotification("Connexion réussie !", "success");
       }
     }).catch((error) => {
       addLog(`Redirect auth error: ${error.code} - ${error.message}`);
       if (error.code === 'auth/unauthorized-domain') {
         addNotification(`Domaine non autorisé: ${window.location.hostname}`, "error");
+      } else if (error.code === 'auth/network-request-failed') {
+        addNotification("Erreur réseau. Vérifiez votre connexion ou vos bloqueurs de pub.", "error");
       }
     });
+
+    addLog(`Origin detected: ${window.location.origin}`);
+    addLog(`Hostname detected: ${window.location.hostname}`);
     
     return () => unsubscribe();
   }, []);
