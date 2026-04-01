@@ -806,7 +806,11 @@ export default function App() {
       
       if (fileType === 'application/pdf' && !processedPreview) {
         const converted = await convertPdfToImage(preview);
-        if (converted) imageToScan = converted;
+        if (converted) {
+          imageToScan = converted;
+        } else {
+          throw new Error("Impossible de convertir le PDF en image pour l'analyse.");
+        }
       }
       
       const text = await performOCR(imageToScan, (progress) => {
@@ -827,9 +831,9 @@ export default function App() {
       } finally {
         setIsGeneratingCalendar(false);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("OCR Error:", error);
-      alert("Erreur lors de l'analyse du texte.");
+      alert(`Erreur lors de l'analyse: ${error.message || "Erreur inconnue"}`);
     } finally {
       setIsScanning(false);
     }
