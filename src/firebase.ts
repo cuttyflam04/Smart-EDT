@@ -14,6 +14,15 @@ export const db = initializeFirestore(app, {
 
 export const googleProvider = new GoogleAuthProvider();
 
+// Error logging system
+export const debugLogs: string[] = [];
+const addLog = (msg: string) => {
+  const log = `[${new Date().toISOString()}] ${msg}`;
+  debugLogs.push(log);
+  if (debugLogs.length > 50) debugLogs.shift();
+  console.log(log);
+};
+
 // Error Handling Spec for Firestore Operations
 export enum OperationType {
   CREATE = 'create',
@@ -44,8 +53,11 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMessage = error instanceof Error ? error.message : String(error);
+  addLog(`Firestore Error (${operationType} @ ${path}): ${errMessage}`);
+  
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -62,7 +74,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
 
@@ -78,5 +89,5 @@ async function testConnection() {
 }
 testConnection();
 
-export { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, onSnapshot, query, where, Timestamp };
+export { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, onSnapshot, query, where, Timestamp, addLog };
 export type { FirebaseUser };

@@ -22,7 +22,8 @@ import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
-import { auth, db, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp } from './firebase';
+import { generateCalendarEvents, generateICS, type CalendarEvent } from './services/calendarService';
+import { auth, db, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp, debugLogs, addLog } from './firebase';
 import { User as FirebaseUser } from 'firebase/auth';
 import { serverTimestamp, orderBy, limit, getDocs } from 'firebase/firestore';
 
@@ -118,12 +119,6 @@ async function saveFile(blob: Blob, suggestedName: string, mimeType: string) {
 const BASE_URL = window.location.origin.includes('localhost') 
   ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
-
-const WIPBadge = ({ className }: { className?: string }) => (
-  <span className={cn("px-1.5 py-0.5 bg-amber-100 text-amber-600 text-[8px] font-bold rounded uppercase tracking-wider", className)}>
-    WIP
-  </span>
-);
 
 const Logo = ({ showText = false }: { showText?: boolean }) => (
   <div className={cn("flex items-center gap-3", showText ? "flex-row" : "flex-col")}>
@@ -288,9 +283,12 @@ export default function App() {
       }
     });
     
-    // Handle redirect result for mobile
-    getRedirectResult(auth).catch((error) => {
-      console.error("Redirect auth error:", error);
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        addLog(`Redirect login success: ${result.user.email}`);
+      }
+    }).catch((error) => {
+      addLog(`Redirect auth error: ${error.code} - ${error.message}`);
       if (error.code === 'auth/unauthorized-domain') {
         addNotification(`Domaine non autorisé: ${window.location.hostname}`, "error");
       }
@@ -335,29 +333,57 @@ export default function App() {
   const handleLogin = async () => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
+    addLog("Starting login process...");
+    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isIframe = window.self !== window.top;
+
     try {
-      // Try popup first as it's more reliable in many environments
-      await signInWithPopup(auth, googleProvider);
+      if (isMobile || isIframe) {
+        addLog(`Using redirect (isMobile: ${isMobile}, isIframe: ${isIframe})...`);
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        addLog("Attempting signInWithPopup...");
+        try {
+          await signInWithPopup(auth, googleProvider);
+          addLog("Login success via popup");
+        } catch (popupError: any) {
+          if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/operation-not-supported-in-this-environment') {
+            addLog("Popup blocked or not supported, falling back to redirect...");
+            await signInWithRedirect(auth, googleProvider);
+          } else {
+            throw popupError;
+          }
+        }
+      }
     } catch (error: any) {
-      console.error("Login failed:", error);
+      addLog(`Login failed: ${error.code} - ${error.message}`);
       
       if (error.code === 'auth/popup-closed-by-user') {
-        // Just log it, don't show an error notification as it's a user action
-        console.log("User closed the login popup.");
-      } else if (error.code === 'auth/popup-blocked') {
-        addNotification("Popup bloquée. Tentative de redirection...", "info");
-        await signInWithRedirect(auth, googleProvider);
+        addLog("User closed the login popup.");
       } else if (error.code === 'auth/unauthorized-domain') {
         addNotification(`Domaine non autorisé: ${window.location.hostname}`, "error");
-      } else if (error.code === 'auth/operation-not-supported-in-this-environment') {
-        addNotification("Environnement non supporté. Tentative de redirection...", "info");
-        await signInWithRedirect(auth, googleProvider);
       } else {
         addNotification("Échec de la connexion. Veuillez réessayer.", "error");
       }
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const copyDiagnosticLogs = () => {
+    const info = [
+      `URL: ${window.location.href}`,
+      `Hostname: ${window.location.hostname}`,
+      `User Agent: ${navigator.userAgent}`,
+      `Auth State: ${user ? 'Logged In (' + user.uid + ')' : 'Logged Out'}`,
+      `Firestore Status: ${db ? 'Initialized' : 'Not Initialized'}`,
+      '\n--- DEBUG LOGS ---',
+      ...(debugLogs || [])
+    ].join('\n');
+    
+    navigator.clipboard.writeText(info);
+    addNotification("Logs copiés dans le presse-papier !", "success");
   };
 
   const handleUpdateClassId = async (classId: string) => {
@@ -599,6 +625,8 @@ export default function App() {
   };
 
   const [ocrText, setOcrText] = useState<string | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[] | null>(null);
+  const [isGeneratingCalendar, setIsGeneratingCalendar] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [isCopied, setIsCopied] = useState(false);
@@ -977,6 +1005,19 @@ export default function App() {
       });
       
       setOcrText(text);
+
+      // Automatically generate calendar events
+      setIsGeneratingCalendar(true);
+      try {
+        const events = await generateCalendarEvents(text);
+        setCalendarEvents(events);
+        addNotification("Calendrier généré avec succès !", "success");
+      } catch (calError) {
+        console.error("Auto Calendar Generation Error:", calError);
+        addNotification("OCR réussi, mais erreur lors de la génération du calendrier.", "error");
+      } finally {
+        setIsGeneratingCalendar(false);
+      }
     } catch (error) {
       console.error("OCR Error:", error);
       alert("Erreur lors de l'analyse du texte.");
@@ -990,6 +1031,19 @@ export default function App() {
     navigator.clipboard.writeText(ocrText);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleDownloadICS = () => {
+    if (!calendarEvents) return;
+    const icsContent = generateICS(calendarEvents);
+    const blob = new Blob([icsContent], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'mon_emploi_du_temps.ics';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+    addNotification("Fichier .ics téléchargé !", "success");
   };
 
   const handleCapturePage = async () => {
@@ -1236,19 +1290,156 @@ export default function App() {
                     {enabledFeatures.ocr && (
                       <button
                         onClick={handleScanText}
-                        disabled={true}
+                        disabled={isScanning}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
                       >
-                        <Scan size={20} className="text-[var(--text-secondary)]" />
-                        <span className="text-[var(--text-secondary)]">Scanner le texte</span>
-                        <div className="absolute top-1 right-1">
-                          <WIPBadge />
-                        </div>
-                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[10px] text-amber-600 font-bold">Bientôt disponible !</span>
-                        </div>
+                        {isScanning ? (
+                          <Loader2 size={20} className="animate-spin text-[var(--color-brand-accent)]" />
+                        ) : (
+                          <Scan size={20} className="text-[var(--text-secondary)]" />
+                        )}
+                        <span className={cn(isScanning || isGeneratingCalendar ? "text-[var(--color-brand-accent)]" : "text-[var(--text-secondary)]")}>
+                          {isScanning 
+                            ? `Analyse (${Math.round(scanProgress * 100)}%)` 
+                            : isGeneratingCalendar 
+                              ? "Génération du calendrier..." 
+                              : "Scanner le texte"}
+                        </span>
                       </button>
                     )}
+
+                    {/* OCR Results Section */}
+                    <AnimatePresence>
+                      {ocrText && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 20 }}
+                          className="w-full mt-8 p-6 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm space-y-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-[var(--color-brand-accent)]/10 text-[var(--color-brand-accent)] rounded-lg">
+                                <Scan size={20} />
+                              </div>
+                              <h3 className="font-bold text-lg">Texte Extrait</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={copyToClipboard}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all",
+                                  isCopied 
+                                    ? "bg-emerald-500 text-white" 
+                                    : "bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)]"
+                                )}
+                              >
+                                {isCopied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                                {isCopied ? "Copié !" : "Copier"}
+                              </button>
+                              <button
+                                onClick={() => setOcrText(null)}
+                                className="p-2 hover:bg-[var(--border)] rounded-lg transition-colors text-[var(--text-secondary)]"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--text)] leading-relaxed">
+                              {ocrText}
+                            </pre>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                            <Sparkles size={14} className="text-[var(--color-brand-accent)]" />
+                            <span>Analysé intelligemment par l'IA</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Calendar Events Section */}
+                    <AnimatePresence>
+                      {calendarEvents && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="w-full mt-8 p-6 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm space-y-6"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+                                <Calendar size={20} />
+                              </div>
+                              <h3 className="font-bold text-lg">Événements Détectés</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={handleDownloadICS}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                              >
+                                <Download size={16} />
+                                Exporter (.ics)
+                              </button>
+                              <button
+                                onClick={() => setCalendarEvents(null)}
+                                className="p-2 hover:bg-[var(--border)] rounded-lg transition-colors text-[var(--text-secondary)]"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                            {calendarEvents.map((event, idx) => (
+                              <motion.div
+                                key={idx}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="p-4 bg-[var(--bg)] border border-[var(--border)] rounded-xl space-y-2 hover:border-[var(--color-brand-accent)]/30 transition-colors group"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <h4 className="font-bold text-[var(--text)] group-hover:text-[var(--color-brand-accent)] transition-colors line-clamp-2">
+                                    {event.title}
+                                  </h4>
+                                  {event.type && (
+                                    <span className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                                      {event.type}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-3 text-xs text-[var(--text-secondary)]">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-amber-500" />
+                                    <span>{event.day}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Loader2 size={12} className="text-sky-500" />
+                                    <span>{event.startTime} - {event.endTime}</span>
+                                  </div>
+                                  {event.room && (
+                                    <div className="flex items-center gap-1">
+                                      <Maximize size={12} className="text-emerald-500" />
+                                      <span>{event.room}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {event.teacher && (
+                                  <div className="flex items-center gap-1 text-xs text-[var(--text-secondary)] pt-1 border-t border-[var(--border)]/50">
+                                    <User size={12} />
+                                    <span className="italic">{event.teacher}</span>
+                                  </div>
+                                )}
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {processedPreview && (
                       <div className="w-full flex flex-col gap-3">
@@ -1552,6 +1743,25 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
+                  <Bug size={18} />
+                  <h3 className="font-bold">Support & Diagnostic</h3>
+                </div>
+                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Si vous rencontrez des problèmes de connexion, utilisez ce bouton pour copier les informations techniques et les envoyer au support.
+                  </p>
+                  <button 
+                    onClick={copyDiagnosticLogs}
+                    className="w-full py-3 bg-[var(--bg)] border border-[var(--border)] rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-[var(--border)] transition-all"
+                  >
+                    <Copy size={18} />
+                    Copier les logs de diagnostic
+                  </button>
+                </div>
+              </div>
+
               {isDeveloperMode && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
@@ -1789,7 +1999,6 @@ export default function App() {
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2">
                                 <p className="font-bold leading-none">{feature.label}</p>
-                                {feature.id === 'ocr' && <WIPBadge />}
                               </div>
                               <p className="text-xs text-[var(--text-secondary)] leading-tight">{feature.description}</p>
                             </div>
