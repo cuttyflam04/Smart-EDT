@@ -20,8 +20,6 @@ export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
 }, firebaseConfig.firestoreDatabaseId);
 
-export const googleProvider = new GoogleAuthProvider();
-
 // Error logging system
 export const debugLogs: string[] = [];
 const addLog = (msg: string) => {
