@@ -7,15 +7,6 @@ import { join } from "path";
 
 dotenv.config();
 
-// Load Firebase config for REST API
-let firebaseConfig: any;
-try {
-  const configPath = join(process.cwd(), "firebase-applet-config.json");
-  firebaseConfig = JSON.parse(readFileSync(configPath, "utf8"));
-} catch (err) {
-  console.error("Could not load firebase-applet-config.json");
-}
-
 async function startServer() {
   const app = express();
   const PORT = 3000;

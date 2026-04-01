@@ -23,9 +23,6 @@ import ImageEditor from './components/ImageEditor';
 import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
 import { generateCalendarEvents, generateICS, type CalendarEvent } from './services/calendarService';
-import { auth, db, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, handleFirestoreError, OperationType, collection, doc, onSnapshot, setDoc, query, where, Timestamp, debugLogs, addLog } from './firebase';
-import { User as FirebaseUser } from 'firebase/auth';
-import { serverTimestamp, orderBy, limit, getDocs } from 'firebase/firestore';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -224,18 +221,21 @@ export default function App() {
     return saved ? JSON.parse(saved) : false;
   });
   const [isDeveloperMode, setIsDeveloperMode] = useState(false);
+  const [filterKeywords, setFilterKeywords] = useState<string[]>(() => {
+    const saved = localStorage.getItem('smartedt_filter_keywords');
+    return saved ? JSON.parse(saved) : [];
+  });
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
-  // Firebase state
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  useEffect(() => {
+    localStorage.setItem('smartedt_filter_keywords', JSON.stringify(filterKeywords));
+  }, [filterKeywords]);
+
+  // Local state (No Firebase)
   const [studentSchedule, setStudentSchedule] = useState<any>(null);
-  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const [adminScheduleUpload, setAdminScheduleUpload] = useState<string>('');
-  const [adminClassId, setAdminClassId] = useState<string>('');
-  const [isUploadingSchedule, setIsUploadingSchedule] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [whatsappNumber, setWhatsappNumber] = useState('33600000000');
+  const [whatsappNumber, setWhatsappNumber] = useState(() => {
+    return localStorage.getItem('smartedt_whatsapp') || '33600000000';
+  });
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const [libraryFiles, setLibraryFiles] = useState<{ name: string, type: 'image' | 'pdf', data?: string, uri?: string }[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
@@ -244,218 +244,13 @@ export default function App() {
   const [viewerNumPages, setViewerNumPages] = useState<number | null>(null);
 
   useEffect(() => {
-    // Reset page number when opening a new file
-    if (viewerFile) {
-      setViewerPageNumber(1);
-      setViewerNumPages(null);
-    }
-    
-    // Cleanup Blob URLs when viewer closes
-    return () => {
-      if (typeof viewerFile?.data === 'string' && viewerFile.data.startsWith('blob:')) {
-        URL.revokeObjectURL(viewerFile.data);
-      }
-    };
-  }, [viewerFile]);
+    // Save WhatsApp number to local storage
+    localStorage.setItem('smartedt_whatsapp', whatsappNumber);
+  }, [whatsappNumber]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (u) {
-        // Listen to user profile
-        const userDocRef = doc(db, 'users', u.uid);
-        onSnapshot(userDocRef, (snap) => {
-          if (snap.exists()) {
-            setUserProfile(snap.data());
-          } else {
-            // Create initial profile
-            setDoc(userDocRef, {
-              displayName: u.displayName,
-              email: u.email,
-              photoURL: u.photoURL,
-              role: 'student',
-              createdAt: serverTimestamp()
-            }, { merge: true });
-          }
-        }, (err) => handleFirestoreError(err, OperationType.GET, `users/${u.uid}`));
-      } else {
-        setUserProfile(null);
-      }
-    });
-    
-    getRedirectResult(auth).then((result) => {
-      if (result) {
-        addLog(`Redirect login success: ${result.user.email}`);
-        addNotification("Connexion réussie !", "success");
-      }
-    }).catch((error) => {
-      addLog(`Redirect auth error: ${error.code} - ${error.message}`);
-      if (error.code === 'auth/unauthorized-domain') {
-        addNotification(`Domaine non autorisé: ${window.location.hostname}`, "error");
-      } else if (error.code === 'auth/network-request-failed') {
-        addNotification("Erreur réseau. Vérifiez votre connexion ou vos bloqueurs de pub.", "error");
-      }
-    });
-
-    addLog(`Origin detected: ${window.location.origin}`);
-    addLog(`Hostname detected: ${window.location.hostname}`);
-    
-    return () => unsubscribe();
-  }, []);
-
-  // Listen to schedules based on user classId
-  useEffect(() => {
-    if (userProfile?.classId) {
-      const q = query(
-        collection(db, 'schedules'),
-        where('classId', '==', userProfile.classId),
-        orderBy('updatedAt', 'desc'),
-        limit(1)
-      );
-      const unsubscribe = onSnapshot(q, (snap) => {
-        if (!snap.empty) {
-          setStudentSchedule(snap.docs[0].data());
-        } else {
-          setStudentSchedule(null);
-        }
-      }, (err) => handleFirestoreError(err, OperationType.LIST, 'schedules'));
-      return () => unsubscribe();
-    }
-  }, [userProfile?.classId]);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'configs', 'global'), (snapshot) => {
-      if (snapshot.exists()) {
-        setWhatsappNumber(snapshot.data().whatsappNumber || '33600000000');
-      }
-    }, (error) => {
-      console.log("Config read permission denied or error:", error.message);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const isAdmin = user !== null && user.email === "monstertrio04@gmail.com";
-
-  const handleLogin = async () => {
-    if (isLoggingIn) return;
-    setIsLoggingIn(true);
-    addLog("Starting login process...");
-    
-    const isIframe = window.self !== window.top;
-    if (isIframe) {
-      addNotification("Note: La connexion est plus stable via l'URL directe (hors aperçu).", "info");
-    }
-
-    try {
-      // Try popup first - even on mobile, it's often more reliable if not blocked
-      addLog("Attempting signInWithPopup...");
-      try {
-        await signInWithPopup(auth, googleProvider);
-        addLog("Login success via popup");
-        addNotification("Connexion réussie !", "success");
-      } catch (popupError: any) {
-        if (popupError.code === 'auth/popup-blocked' || 
-            popupError.code === 'auth/operation-not-supported-in-this-environment' ||
-            popupError.code === 'auth/popup-closed-by-user') {
-          
-          if (popupError.code === 'auth/popup-closed-by-user') {
-            addLog("User closed popup, stopping.");
-            return;
-          }
-
-          addLog("Popup blocked/unsupported, attempting redirect...");
-          addNotification("Popup bloquée, tentative de redirection...", "info");
-          await signInWithRedirect(auth, googleProvider);
-        } else {
-          throw popupError;
-        }
-      }
-    } catch (error: any) {
-      addLog(`Login failed: ${error.code} - ${error.message}`);
-      
-      if (error.code === 'auth/unauthorized-domain') {
-        addNotification(`Domaine non autorisé: ${window.location.hostname}. Vérifiez la console Firebase.`, "error");
-      } else if (error.code === 'auth/network-request-failed') {
-        addNotification("Erreur réseau. Vérifiez vos bloqueurs de pub.", "error");
-      } else {
-        addNotification("Échec de la connexion. Veuillez réessayer.", "error");
-      }
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const copyDiagnosticLogs = () => {
-    const info = [
-      `URL: ${window.location.href}`,
-      `Hostname: ${window.location.hostname}`,
-      `User Agent: ${navigator.userAgent}`,
-      `Auth State: ${user ? 'Logged In (' + user.uid + ')' : 'Logged Out'}`,
-      `Firestore Status: ${db ? 'Initialized' : 'Not Initialized'}`,
-      '\n--- DEBUG LOGS ---',
-      ...(debugLogs || [])
-    ].join('\n');
-    
-    navigator.clipboard.writeText(info);
-    addNotification("Logs copiés dans le presse-papier !", "success");
-  };
-
-  const handleUpdateClassId = async (classId: string) => {
-    if (!user) return;
-    setIsUpdatingProfile(true);
-    try {
-      await setDoc(doc(db, 'users', user.uid), { classId }, { merge: true });
-      addNotification("Classe mise à jour !", "success");
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${user.uid}`);
-    } finally {
-      setIsUpdatingProfile(false);
-    }
-  };
-
-  const handleSaveWhatsappConfig = async () => {
-    if (!isAdmin) return;
-    setIsSavingConfig(true);
-    try {
-      await setDoc(doc(db, 'configs', 'global'), {
-        whatsappNumber,
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid
-      }, { merge: true });
-      addNotification('Numéro WhatsApp mis à jour !', 'success');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'configs/global');
-    } finally {
-      setIsSavingConfig(false);
-    }
-  };
-
-  const handleUploadSchedule = async () => {
-    if (!isAdmin || !adminClassId || !adminScheduleUpload) {
-      addNotification("Veuillez remplir tous les champs admin.", "error");
-      return;
-    }
-    
-    setIsUploadingSchedule(true);
-    try {
-      const scheduleData = JSON.parse(adminScheduleUpload);
-      const scheduleDocRef = doc(collection(db, 'schedules'));
-      await setDoc(scheduleDocRef, {
-        classId: adminClassId.toUpperCase(),
-        ...scheduleData,
-        updatedAt: serverTimestamp(),
-        authorUid: user?.uid
-      });
-      
-      addNotification(`EDT pour ${adminClassId} mis en ligne !`, "success");
-      setAdminScheduleUpload('');
-      setAdminClassId('');
-    } catch (error) {
-      console.error("Upload error:", error);
-      addNotification("Erreur lors de l'upload. Vérifiez le format JSON.", "error");
-    } finally {
-      setIsUploadingSchedule(false);
-    }
+  const addLog = (msg: string) => {
+    const log = `[${new Date().toISOString()}] ${msg}`;
+    console.log(log);
   };
 
   const loadLibraryFiles = async () => {
@@ -1023,7 +818,7 @@ export default function App() {
       // Automatically generate calendar events
       setIsGeneratingCalendar(true);
       try {
-        const events = await generateCalendarEvents(text);
+        const events = await generateCalendarEvents(text, filterKeywords);
         setCalendarEvents(events);
         addNotification("Calendrier généré avec succès !", "success");
       } catch (calError) {
@@ -1407,6 +1202,63 @@ export default function App() {
                             </div>
                           </div>
 
+                          <div className="flex flex-col gap-4 p-4 bg-[var(--bg)] border border-[var(--border)] rounded-xl">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold flex items-center gap-2">
+                                <Sparkles size={16} className="text-amber-500" />
+                                Filtres actifs
+                              </h4>
+                              <button 
+                                onClick={async () => {
+                                  setIsGeneratingCalendar(true);
+                                  try {
+                                    const events = await generateCalendarEvents(ocrText!, filterKeywords);
+                                    setCalendarEvents(events);
+                                    addNotification("Calendrier mis à jour !", "success");
+                                  } catch (e) {
+                                    addNotification("Erreur lors de la mise à jour.", "error");
+                                  } finally {
+                                    setIsGeneratingCalendar(false);
+                                  }
+                                }}
+                                disabled={isGeneratingCalendar}
+                                className="text-xs font-bold text-[var(--color-brand-accent)] hover:underline disabled:opacity-50"
+                              >
+                                {isGeneratingCalendar ? "Mise à jour..." : "Appliquer les filtres"}
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {filterKeywords.length === 0 ? (
+                                <p className="text-xs text-[var(--text-secondary)] italic">Aucun filtre. Tous les cours sont affichés.</p>
+                              ) : (
+                                filterKeywords.map(kw => (
+                                  <span key={kw} className="px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-full text-[10px] font-bold flex items-center gap-1">
+                                    {kw}
+                                    <button onClick={() => setFilterKeywords(prev => prev.filter(k => k !== kw))}>
+                                      <X size={10} />
+                                    </button>
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text"
+                                placeholder="Ajouter un filtre (ex: Groupe B)..."
+                                className="flex-1 px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs outline-none focus:ring-1 focus:ring-[var(--color-brand-accent)]"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const val = e.currentTarget.value.trim();
+                                    if (val && !filterKeywords.includes(val)) {
+                                      setFilterKeywords(prev => [...prev, val]);
+                                      e.currentTarget.value = '';
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                             {calendarEvents.map((event, idx) => (
                               <motion.div
@@ -1519,148 +1371,53 @@ export default function App() {
               exit={{ opacity: 0, y: -20 }}
               className="w-full max-w-4xl space-y-8"
             >
-              {!user ? (
-                <div className="max-w-md mx-auto space-y-6 text-center py-12">
-                  <div className="w-20 h-20 bg-[var(--color-brand-accent)]/10 rounded-full flex items-center justify-center mx-auto text-[var(--color-brand-accent)]">
-                    <User size={40} />
+              <div className="grid grid-cols-1 gap-8">
+                {/* Library Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-2xl font-bold flex items-center gap-3">
+                      <Layers size={24} className="text-[var(--color-brand-accent)]" />
+                      Mes EDTs Importés
+                    </h3>
+                    <button 
+                      onClick={loadLibraryFiles}
+                      className="p-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-all"
+                    >
+                      <RotateCcw size={20} className={isLoadingLibrary ? "animate-spin" : ""} />
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">Connectez-vous</h2>
-                    <p className="text-[var(--text-secondary)]">
-                      Accédez à vos emplois du temps institutionnels et synchronisez vos fichiers sur tous vos appareils.
-                    </p>
-                  </div>
-                  <button 
-                    onClick={handleLogin}
-                    disabled={isLoggingIn}
-                    className="w-full py-4 bg-[var(--color-brand-accent)] text-white rounded-2xl font-bold shadow-lg hover:brightness-110 transition-all flex items-center justify-center gap-3"
-                  >
-                    {isLoggingIn ? <Loader2 size={20} className="animate-spin" /> : <Cpu size={20} />}
-                    Se connecter avec Google
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Profile Section */}
-                  <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-sm text-center">
-                      <div className="relative inline-block mb-4">
-                        <img 
-                          src={user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`} 
-                          alt="Profile" 
-                          className="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-2 border-white rounded-full" />
-                      </div>
-                      <h3 className="text-xl font-bold">{user.displayName}</h3>
-                      <p className="text-sm text-[var(--text-secondary)] mb-6">{user.email}</p>
-                      
-                      <div className="space-y-4 text-left">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase ml-1">Ma Classe / Groupe</label>
-                          <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              placeholder="Ex: L3-INFO"
-                              defaultValue={userProfile?.classId || ''}
-                              onBlur={(e) => handleUpdateClassId(e.target.value)}
-                              className="flex-1 px-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-[var(--color-brand-accent)]"
-                            />
-                            {isUpdatingProfile && <Loader2 size={16} className="animate-spin text-[var(--color-brand-accent)] mt-2" />}
-                          </div>
-                        </div>
-                      </div>
 
+                  {isLoadingLibrary ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-4">
+                      <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
+                      <p className="text-[var(--text-secondary)] font-medium">Chargement de votre bibliothèque...</p>
+                    </div>
+                  ) : libraryFiles.length === 0 ? (
+                    <div className="bg-[var(--surface)] border-2 border-dashed border-[var(--border)] rounded-[2.5rem] p-12 text-center space-y-4">
+                      <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mx-auto text-[var(--text-secondary)]">
+                        <FileText size={32} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-bold text-lg">Votre bibliothèque est vide</p>
+                        <p className="text-sm text-[var(--text-secondary)]">Importez ou créez votre premier emploi du temps pour le voir ici.</p>
+                      </div>
                       <button 
-                        onClick={() => signOut(auth)}
-                        className="mt-8 w-full py-3 text-red-500 font-bold text-sm hover:bg-red-50 rounded-xl transition-all"
+                        onClick={() => setActiveTab('home')}
+                        className="px-6 py-2 bg-[var(--color-brand-accent)] text-white rounded-full text-sm font-bold shadow-md"
                       >
-                        Déconnexion
+                        Commencer
                       </button>
                     </div>
-
-                    {/* Today's Schedule Mini-View */}
-                    <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="font-bold flex items-center gap-2">
-                          <Calendar size={18} className="text-[var(--color-brand-accent)]" />
-                          Aujourd'hui
-                        </h4>
-                      </div>
-                      
-                      {!userProfile?.classId ? (
-                        <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
-                          Renseignez votre classe pour voir votre EDT.
-                        </p>
-                      ) : !studentSchedule ? (
-                        <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
-                          Aucun EDT trouvé pour {userProfile.classId}.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {studentSchedule.days?.find((d: any) => d.dayName.toLowerCase() === new Date().toLocaleDateString('fr-FR', { weekday: 'long' }).toLowerCase())?.slots?.map((slot: any, sidx: number) => (
-                            <div key={sidx} className="p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
-                              <p className="text-[10px] font-bold text-[var(--color-brand-accent)]">{slot.time}</p>
-                              <p className="font-bold text-sm">{slot.subject}</p>
-                              <p className="text-[10px] text-[var(--text-secondary)]">{slot.room} • {slot.teacher}</p>
-                            </div>
-                          )) || (
-                            <p className="text-xs text-[var(--text-secondary)] text-center py-4 italic">
-                              Rien de prévu pour aujourd'hui !
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Library Section */}
-                  <div className="lg:col-span-2 space-y-6">
-                    <div className="flex items-center justify-between px-2">
-                      <h3 className="text-2xl font-bold flex items-center gap-3">
-                        <Layers size={24} className="text-[var(--color-brand-accent)]" />
-                        Mes EDTs Importés
-                      </h3>
-                      <button 
-                        onClick={loadLibraryFiles}
-                        className="p-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-all"
-                      >
-                        <RotateCcw size={20} className={isLoadingLibrary ? "animate-spin" : ""} />
-                      </button>
-                    </div>
-
-                    {isLoadingLibrary ? (
-                      <div className="flex flex-col items-center justify-center py-20 gap-4">
-                        <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
-                        <p className="text-[var(--text-secondary)] font-medium">Chargement de votre bibliothèque...</p>
-                      </div>
-                    ) : libraryFiles.length === 0 ? (
-                      <div className="bg-[var(--surface)] border-2 border-dashed border-[var(--border)] rounded-[2.5rem] p-12 text-center space-y-4">
-                        <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mx-auto text-[var(--text-secondary)]">
-                          <FileText size={32} />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-bold text-lg">Votre bibliothèque est vide</p>
-                          <p className="text-sm text-[var(--text-secondary)]">Importez ou créez votre premier emploi du temps pour le voir ici.</p>
-                        </div>
-                        <button 
-                          onClick={() => setActiveTab('home')}
-                          className="px-6 py-2 bg-[var(--color-brand-accent)] text-white rounded-full text-sm font-bold shadow-md"
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {libraryFiles.map((file, idx) => (
+                        <motion.div
+                          key={file.name + idx}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="group bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-lg transition-all"
                         >
-                          Commencer
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {libraryFiles.map((file, idx) => (
-                          <motion.div
-                            key={file.name + idx}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: idx * 0.05 }}
-                            className="group bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-lg transition-all"
-                          >
                             <div className={cn(
                               "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
                               file.type === 'pdf' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
@@ -1702,7 +1459,6 @@ export default function App() {
                     )}
                   </div>
                 </div>
-              )}
             </motion.div>
           )}
 
@@ -1759,19 +1515,66 @@ export default function App() {
 
               <div className="space-y-4">
                 <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
+                  <Sparkles size={18} />
+                  <h3 className="font-bold">Mes Cours (Filtres)</h3>
+                </div>
+                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Ajoutez des mots-clés (ex: "Groupe A", "Maths") pour que l'IA ne garde que les cours qui vous concernent lors de l'analyse.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {filterKeywords.map(kw => (
+                      <span key={kw} className="px-3 py-1 bg-[var(--bg)] border border-[var(--border)] rounded-full text-xs font-bold flex items-center gap-2">
+                        {kw}
+                        <button onClick={() => setFilterKeywords(prev => prev.filter(k => k !== kw))}>
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="Ajouter un mot-clé..."
+                      className="flex-1 px-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-accent)]"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = e.currentTarget.value.trim();
+                          if (val && !filterKeywords.includes(val)) {
+                            setFilterKeywords(prev => [...prev, val]);
+                            e.currentTarget.value = '';
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
                   <Bug size={18} />
                   <h3 className="font-bold">Support & Diagnostic</h3>
                 </div>
                 <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
                   <p className="text-sm text-[var(--text-secondary)]">
-                    Si vous rencontrez des problèmes de connexion, utilisez ce bouton pour copier les informations techniques et les envoyer au support.
+                    Si vous rencontrez des problèmes, utilisez ce bouton pour copier les informations techniques et les envoyer au support.
                   </p>
                   <button 
-                    onClick={copyDiagnosticLogs}
+                    onClick={() => {
+                      const info = {
+                        ua: navigator.userAgent,
+                        url: window.location.href,
+                        origin: window.location.origin,
+                        platform: Capacitor.getPlatform()
+                      };
+                      navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+                      addNotification("Infos de diagnostic copiées !", "success");
+                    }}
                     className="w-full py-3 bg-[var(--bg)] border border-[var(--border)] rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-[var(--border)] transition-all"
                   >
                     <Copy size={18} />
-                    Copier les logs de diagnostic
+                    Copier les infos de diagnostic
                   </button>
                 </div>
               </div>
@@ -1802,25 +1605,6 @@ export default function App() {
                             <Phone size={18} className="text-amber-600" />
                             <p className="font-bold">Configuration WhatsApp</p>
                           </div>
-                          {!user ? (
-                            <button 
-                              onClick={handleLogin}
-                              disabled={isLoggingIn}
-                              className="text-[10px] font-bold text-amber-600 uppercase tracking-wider hover:underline disabled:opacity-50"
-                            >
-                              {isLoggingIn ? "Connexion..." : "Connexion Admin"}
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-bold text-amber-600/60 truncate max-w-[100px]">{user.email}</span>
-                              <button 
-                                onClick={() => auth.signOut()}
-                                className="text-[10px] font-bold text-red-500 uppercase tracking-wider hover:underline"
-                              >
-                                Déconnexion
-                              </button>
-                            </div>
-                          )}
                         </div>
                         
                         <div className="space-y-2">
@@ -1830,19 +1614,18 @@ export default function App() {
                               type="text" 
                               value={whatsappNumber}
                               onChange={(e) => setWhatsappNumber(e.target.value)}
-                              disabled={!isAdmin}
                               placeholder="Ex: 33612345678"
                               className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
                             />
-                            {isAdmin && (
-                              <button 
-                                onClick={handleSaveWhatsappConfig}
-                                disabled={isSavingConfig}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-amber-600 text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
-                              >
-                                {isSavingConfig ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                              </button>
-                            )}
+                            <button 
+                              onClick={() => {
+                                localStorage.setItem('smartedt_whatsapp', whatsappNumber);
+                                addNotification('Numéro WhatsApp sauvegardé localement !', 'success');
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-amber-600 text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
+                            >
+                              <CheckCircle2 size={14} />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1861,8 +1644,7 @@ export default function App() {
                               type="checkbox" 
                               className="sr-only peer" 
                               checked={logoLinkEnabled}
-                              onChange={(e) => isAdmin && setLogoLinkEnabled(e.target.checked)}
-                              disabled={!isAdmin}
+                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
                             />
                             <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 opacity-50 peer-enabled:opacity-100"></div>
                           </label>
@@ -1874,60 +1656,12 @@ export default function App() {
                             <input 
                               type="text" 
                               value={logoLinkUrl}
-                              onChange={(e) => isAdmin && setLogoLinkUrl(e.target.value)}
-                              disabled={!isAdmin}
+                              onChange={(e) => setLogoLinkUrl(e.target.value)}
                               className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
                               placeholder="https://example.com"
                             />
                           </div>
                         )}
-                      </div>
-
-                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
-
-                      {/* Schedule Upload */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={18} className="text-amber-600" />
-                            <p className="font-bold">Upload Emploi du Temps</p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Classe ID (Ex: L3-INFO)</label>
-                            <input 
-                              type="text" 
-                              value={adminClassId}
-                              onChange={(e) => setAdminClassId(e.target.value)}
-                              disabled={!isAdmin}
-                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
-                              placeholder="ID de la classe"
-                            />
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Données JSON</label>
-                            <textarea 
-                              value={adminScheduleUpload}
-                              onChange={(e) => setAdminScheduleUpload(e.target.value)}
-                              disabled={!isAdmin}
-                              rows={4}
-                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50 resize-none"
-                              placeholder='{"days": [{"dayName": "Lundi", "slots": [...]}]}'
-                            />
-                          </div>
-
-                          <button 
-                            onClick={handleUploadSchedule}
-                            disabled={!isAdmin || isUploadingSchedule}
-                            className="w-full py-3 bg-amber-600 text-white rounded-xl font-bold text-sm shadow-md hover:brightness-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                            {isUploadingSchedule ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} />}
-                            Mettre en ligne l'EDT
-                          </button>
-                        </div>
                       </div>
 
                       <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
@@ -1967,11 +1701,10 @@ export default function App() {
                                   ua: navigator.userAgent,
                                   url: window.location.href,
                                   origin: window.location.origin,
-                                  platform: Capacitor.getPlatform(),
-                                  user: user ? { email: user.email, verified: user.emailVerified } : 'null'
+                                  platform: Capacitor.getPlatform()
                                 };
                                 navigator.clipboard.writeText(JSON.stringify(info, null, 2));
-                                alert('Infos copiées !');
+                                addNotification('Infos copiées !', 'success');
                               }}
                               className="px-4 py-2 bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold hover:bg-blue-200 transition-colors"
                             >
