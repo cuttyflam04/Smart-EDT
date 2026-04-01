@@ -341,34 +341,42 @@ export default function App() {
     setIsLoggingIn(true);
     addLog("Starting login process...");
     
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const isIframe = window.self !== window.top;
+    if (isIframe) {
+      addNotification("Note: La connexion est plus stable via l'URL directe (hors aperçu).", "info");
+    }
 
     try {
-      if (isMobile || isIframe) {
-        addLog(`Using redirect (isMobile: ${isMobile}, isIframe: ${isIframe})...`);
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        addLog("Attempting signInWithPopup...");
-        try {
-          await signInWithPopup(auth, googleProvider);
-          addLog("Login success via popup");
-        } catch (popupError: any) {
-          if (popupError.code === 'auth/popup-blocked' || popupError.code === 'auth/operation-not-supported-in-this-environment') {
-            addLog("Popup blocked or not supported, falling back to redirect...");
-            await signInWithRedirect(auth, googleProvider);
-          } else {
-            throw popupError;
+      // Try popup first - even on mobile, it's often more reliable if not blocked
+      addLog("Attempting signInWithPopup...");
+      try {
+        await signInWithPopup(auth, googleProvider);
+        addLog("Login success via popup");
+        addNotification("Connexion réussie !", "success");
+      } catch (popupError: any) {
+        if (popupError.code === 'auth/popup-blocked' || 
+            popupError.code === 'auth/operation-not-supported-in-this-environment' ||
+            popupError.code === 'auth/popup-closed-by-user') {
+          
+          if (popupError.code === 'auth/popup-closed-by-user') {
+            addLog("User closed popup, stopping.");
+            return;
           }
+
+          addLog("Popup blocked/unsupported, attempting redirect...");
+          addNotification("Popup bloquée, tentative de redirection...", "info");
+          await signInWithRedirect(auth, googleProvider);
+        } else {
+          throw popupError;
         }
       }
     } catch (error: any) {
       addLog(`Login failed: ${error.code} - ${error.message}`);
       
-      if (error.code === 'auth/popup-closed-by-user') {
-        addLog("User closed the login popup.");
-      } else if (error.code === 'auth/unauthorized-domain') {
-        addNotification(`Domaine non autorisé: ${window.location.hostname}`, "error");
+      if (error.code === 'auth/unauthorized-domain') {
+        addNotification(`Domaine non autorisé: ${window.location.hostname}. Vérifiez la console Firebase.`, "error");
+      } else if (error.code === 'auth/network-request-failed') {
+        addNotification("Erreur réseau. Vérifiez vos bloqueurs de pub.", "error");
       } else {
         addNotification("Échec de la connexion. Veuillez réessayer.", "error");
       }
