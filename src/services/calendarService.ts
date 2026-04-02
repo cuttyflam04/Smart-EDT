@@ -19,7 +19,7 @@ export const generateCalendarEvents = async (ocrText: string, filterKeywords?: s
       : "";
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `Transforme ce texte d'emploi du temps en une liste JSON d'événements. 
       Chaque événement doit avoir: title, day, startTime, endTime, room, teacher, type.
       Sois précis sur les horaires et les jours. ${filterInstruction}

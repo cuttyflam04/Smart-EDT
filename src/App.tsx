@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Key } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -833,7 +833,15 @@ export default function App() {
       }
     } catch (error: any) {
       console.error("OCR Error:", error);
-      alert(`Erreur lors de l'analyse: ${error.message || "Erreur inconnue"}`);
+      const isApiKeyError = error.message?.toLowerCase().includes("api key") || 
+                           error.message?.toLowerCase().includes("not found") ||
+                           error.message?.toLowerCase().includes("unauthorized");
+      
+      if (isApiKeyError) {
+        alert("Problème d'accès à l'IA. Allez dans les 'Réglages' et cliquez sur 'Configurer l'accès IA' pour activer le service gratuitement.");
+      } else {
+        alert(`Erreur lors de l'analyse: ${error.message || "Erreur inconnue"}`);
+      }
     } finally {
       setIsScanning(false);
     }
@@ -1514,6 +1522,37 @@ export default function App() {
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
+                  <Key size={18} />
+                  <h3 className="font-bold">Accès IA</h3>
+                </div>
+                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Si l'analyse vous demande une clé API sur mobile, cliquez sur le bouton ci-dessous pour configurer l'accès gratuit.
+                  </p>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const aistudio = (window as any).aistudio;
+                        if (aistudio && aistudio.openSelectKey) {
+                          await aistudio.openSelectKey();
+                          alert("Configuration mise à jour ! Réessayez le scan.");
+                        } else {
+                          alert("Cette option n'est disponible que dans l'environnement AI Studio.");
+                        }
+                      } catch (e) {
+                        alert("Erreur lors de la configuration.");
+                      }
+                    }}
+                    className="w-full py-3 bg-[var(--color-brand-accent)] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-md hover:opacity-90 transition-opacity"
+                  >
+                    <Key size={18} />
+                    Configurer l'accès IA
+                  </button>
                 </div>
               </div>
 

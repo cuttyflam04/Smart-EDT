@@ -55,9 +55,9 @@ export const performOCR = async (image: string, onProgress?: (progress: number) 
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    // Using gemini-3.1-pro-preview for more robust vision processing
+    // Using gemini-3-flash-preview for better availability and speed
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           { 
