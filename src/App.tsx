@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Key } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -221,15 +221,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : false;
   });
   const [isDeveloperMode, setIsDeveloperMode] = useState(false);
-  const [filterKeywords, setFilterKeywords] = useState<string[]>(() => {
-    const saved = localStorage.getItem('smartedt_filter_keywords');
-    return saved ? JSON.parse(saved) : [];
-  });
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem('smartedt_filter_keywords', JSON.stringify(filterKeywords));
-  }, [filterKeywords]);
 
   // Local state (No Firebase)
   const [studentSchedule, setStudentSchedule] = useState<any>(null);
@@ -806,11 +798,7 @@ export default function App() {
       
       if (fileType === 'application/pdf' && !processedPreview) {
         const converted = await convertPdfToImage(preview);
-        if (converted) {
-          imageToScan = converted;
-        } else {
-          throw new Error("Impossible de convertir le PDF en image pour l'analyse.");
-        }
+        if (converted) imageToScan = converted;
       }
       
       const text = await performOCR(imageToScan, (progress) => {
@@ -822,7 +810,7 @@ export default function App() {
       // Automatically generate calendar events
       setIsGeneratingCalendar(true);
       try {
-        const events = await generateCalendarEvents(text, filterKeywords);
+        const events = await generateCalendarEvents(text);
         setCalendarEvents(events);
         addNotification("Calendrier généré avec succès !", "success");
       } catch (calError) {
@@ -831,17 +819,9 @@ export default function App() {
       } finally {
         setIsGeneratingCalendar(false);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("OCR Error:", error);
-      const isApiKeyError = error.message?.toLowerCase().includes("api key") || 
-                           error.message?.toLowerCase().includes("not found") ||
-                           error.message?.toLowerCase().includes("unauthorized");
-      
-      if (isApiKeyError) {
-        alert("Problème d'accès à l'IA. Allez dans les 'Réglages' et cliquez sur 'Configurer l'accès IA' pour activer le service gratuitement.");
-      } else {
-        alert(`Erreur lors de l'analyse: ${error.message || "Erreur inconnue"}`);
-      }
+      alert("Erreur lors de l'analyse du texte.");
     } finally {
       setIsScanning(false);
     }
@@ -1214,63 +1194,6 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="flex flex-col gap-4 p-4 bg-[var(--bg)] border border-[var(--border)] rounded-xl">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-bold flex items-center gap-2">
-                                <Sparkles size={16} className="text-amber-500" />
-                                Filtres actifs
-                              </h4>
-                              <button 
-                                onClick={async () => {
-                                  setIsGeneratingCalendar(true);
-                                  try {
-                                    const events = await generateCalendarEvents(ocrText!, filterKeywords);
-                                    setCalendarEvents(events);
-                                    addNotification("Calendrier mis à jour !", "success");
-                                  } catch (e) {
-                                    addNotification("Erreur lors de la mise à jour.", "error");
-                                  } finally {
-                                    setIsGeneratingCalendar(false);
-                                  }
-                                }}
-                                disabled={isGeneratingCalendar}
-                                className="text-xs font-bold text-[var(--color-brand-accent)] hover:underline disabled:opacity-50"
-                              >
-                                {isGeneratingCalendar ? "Mise à jour..." : "Appliquer les filtres"}
-                              </button>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {filterKeywords.length === 0 ? (
-                                <p className="text-xs text-[var(--text-secondary)] italic">Aucun filtre. Tous les cours sont affichés.</p>
-                              ) : (
-                                filterKeywords.map(kw => (
-                                  <span key={kw} className="px-2 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-full text-[10px] font-bold flex items-center gap-1">
-                                    {kw}
-                                    <button onClick={() => setFilterKeywords(prev => prev.filter(k => k !== kw))}>
-                                      <X size={10} />
-                                    </button>
-                                  </span>
-                                ))
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <input 
-                                type="text"
-                                placeholder="Ajouter un filtre (ex: Groupe B)..."
-                                className="flex-1 px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs outline-none focus:ring-1 focus:ring-[var(--color-brand-accent)]"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    const val = e.currentTarget.value.trim();
-                                    if (val && !filterKeywords.includes(val)) {
-                                      setFilterKeywords(prev => [...prev, val]);
-                                      e.currentTarget.value = '';
-                                    }
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                             {calendarEvents.map((event, idx) => (
                               <motion.div
@@ -1521,75 +1444,6 @@ export default function App() {
                       />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
                     </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
-                  <Key size={18} />
-                  <h3 className="font-bold">Accès IA</h3>
-                </div>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Si l'analyse vous demande une clé API sur mobile, cliquez sur le bouton ci-dessous pour configurer l'accès gratuit.
-                  </p>
-                  <button 
-                    onClick={async () => {
-                      try {
-                        const aistudio = (window as any).aistudio;
-                        if (aistudio && aistudio.openSelectKey) {
-                          await aistudio.openSelectKey();
-                          alert("Configuration mise à jour ! Réessayez le scan.");
-                        } else {
-                          alert("Cette option n'est disponible que dans l'environnement AI Studio.");
-                        }
-                      } catch (e) {
-                        alert("Erreur lors de la configuration.");
-                      }
-                    }}
-                    className="w-full py-3 bg-[var(--color-brand-accent)] text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-md hover:opacity-90 transition-opacity"
-                  >
-                    <Key size={18} />
-                    Configurer l'accès IA
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
-                  <Sparkles size={18} />
-                  <h3 className="font-bold">Mes Cours (Filtres)</h3>
-                </div>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Ajoutez des mots-clés (ex: "Groupe A", "Maths") pour que l'IA ne garde que les cours qui vous concernent lors de l'analyse.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {filterKeywords.map(kw => (
-                      <span key={kw} className="px-3 py-1 bg-[var(--bg)] border border-[var(--border)] rounded-full text-xs font-bold flex items-center gap-2">
-                        {kw}
-                        <button onClick={() => setFilterKeywords(prev => prev.filter(k => k !== kw))}>
-                          <X size={12} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input 
-                      type="text"
-                      placeholder="Ajouter un mot-clé..."
-                      className="flex-1 px-4 py-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm outline-none focus:ring-2 focus:ring-[var(--color-brand-accent)]"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const val = e.currentTarget.value.trim();
-                          if (val && !filterKeywords.includes(val)) {
-                            setFilterKeywords(prev => [...prev, val]);
-                            e.currentTarget.value = '';
-                          }
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               </div>

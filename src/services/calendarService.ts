@@ -10,19 +10,15 @@ export interface CalendarEvent {
   type?: string; // e.g., "CM", "TD", "TP"
 }
 
-export const generateCalendarEvents = async (ocrText: string, filterKeywords?: string[]): Promise<CalendarEvent[]> => {
+export const generateCalendarEvents = async (ocrText: string): Promise<CalendarEvent[]> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    const filterInstruction = filterKeywords && filterKeywords.length > 0 
-      ? `\nIMPORTANT: Ne retourne QUE les cours qui correspondent à ces mots-clés (titre, groupe, ou type): ${filterKeywords.join(', ')}.`
-      : "";
-
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: `Transforme ce texte d'emploi du temps en une liste JSON d'événements. 
       Chaque événement doit avoir: title, day, startTime, endTime, room, teacher, type.
-      Sois précis sur les horaires et les jours. ${filterInstruction}
+      Sois précis sur les horaires et les jours. 
       Texte: ${ocrText}`,
       config: {
         responseMimeType: "application/json",

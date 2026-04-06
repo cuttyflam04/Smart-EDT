@@ -2,62 +2,36 @@ import { GoogleGenAI } from "@google/genai";
 
 export const performOCR = async (image: string, onProgress?: (progress: number) => void): Promise<string> => {
   try {
-    if (onProgress) onProgress(0.1);
-    
-    // Helper to compress image if it's too large
-    const compressImage = async (base64Str: string): Promise<{ data: string, mimeType: string }> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          
-          // Max dimension for OCR (Gemini works well with ~2000px)
-          const MAX_DIM = 2048;
-          if (width > MAX_DIM || height > MAX_DIM) {
-            if (width > height) {
-              height = Math.round((height * MAX_DIM) / width);
-              width = MAX_DIM;
-            } else {
-              width = Math.round((width * MAX_DIM) / height);
-              height = MAX_DIM;
-            }
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error("Impossible de créer le contexte canvas"));
-            return;
-          }
-          
-          ctx.drawImage(img, 0, 0, width, height);
-          // Compress to JPEG for smaller payload
-          const compressed = canvas.toDataURL('image/jpeg', 0.8);
-          const match = compressed.match(/^data:([^;]+);base64,(.+)$/);
-          if (match) {
-            resolve({ mimeType: match[1], data: match[2] });
-          } else {
-            reject(new Error("Erreur de compression"));
-          }
-        };
-        img.onerror = () => reject(new Error("Erreur de chargement de l'image pour compression"));
-        img.src = base64Str;
-      });
-    };
-
-    if (onProgress) onProgress(0.3);
-    const { data: base64Data, mimeType } = await compressImage(image);
-    
-    if (onProgress) onProgress(0.5);
+    if (onProgress) onProgress(0.2);
     
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
-    // Using gemini-3-flash-preview for better availability and speed
+    if (onProgress) onProgress(0.4);
+    
+    // Detect mime type and extract base64 data
+    let mimeType = 'image/png';
+    let base64Data = image;
+    
+    if (image.startsWith('data:')) {
+      const match = image.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        base64Data = match[2];
+      }
+    }
+    
+    // Clean up base64 data (remove any potential whitespace)
+    base64Data = base64Data.trim();
+    
+    if (!base64Data) {
+      throw new Error("Données d'image vides.");
+    }
+    
+    if (onProgress) onProgress(0.6);
+
+    // Using gemini-3.1-pro-preview for more robust vision processing
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: {
         parts: [
           { 
