@@ -10,16 +10,41 @@ export interface CalendarEvent {
   type?: string; // e.g., "CM", "TD", "TP"
 }
 
-export const generateCalendarEvents = async (ocrText: string): Promise<CalendarEvent[]> => {
+export const generateCalendarEvents = async (ocrText: string, filterKeywords?: string[]): Promise<CalendarEvent[]> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
+    const filterInstruction = filterKeywords && filterKeywords.length > 0 
+      ? `\nIMPORTANT: Ne retourne QUE les cours qui correspondent à ces mots-clés (titre, groupe, ou type): ${filterKeywords.join(', ')}.`
+      : "";
+
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-pro-preview',
-      contents: `Transforme ce texte d'emploi du temps en une liste JSON d'événements. 
-      Chaque événement doit avoir: title, day, startTime, endTime, room, teacher, type.
-      Sois précis sur les horaires et les jours. 
-      Texte: ${ocrText}`,
+      model: 'gemini-3-flash-preview',
+      contents: `Tu es un assistant spécialisé dans l'analyse d’emplois du temps scolaires.
+Ta tâche est de transformer un texte brut issu d’un OCR en un JSON structuré.
+
+IMPORTANT :
+* Le texte peut contenir des erreurs (OCR imparfait)
+* Les formats peuvent varier (tableau, lignes, désordre)
+* Tu dois corriger intelligemment sans inventer
+
+INSTRUCTIONS :
+1. Identifie les jours (Lundi à Dimanche)
+2. Identifie les horaires (début et fin)
+3. Identifie les matières
+4. Identifie les salles si présentes
+5. Ignore les éléments inutiles (numéros, bruit OCR)
+${filterInstruction}
+
+RÈGLES :
+* Format heure : HH:MM (24h)
+* Si une information est absente → null
+* Corrige les fautes OCR évidentes (ex: "Maths" → "Mathématiques")
+* Si plusieurs cours → plusieurs objets dans le tableau
+* Respecte l’ordre chronologique
+
+TEXTE À ANALYSER :
+${ocrText}`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -27,13 +52,13 @@ export const generateCalendarEvents = async (ocrText: string): Promise<CalendarE
           items: {
             type: Type.OBJECT,
             properties: {
-              title: { type: Type.STRING },
-              day: { type: Type.STRING },
-              startTime: { type: Type.STRING },
-              endTime: { type: Type.STRING },
-              room: { type: Type.STRING },
-              teacher: { type: Type.STRING },
-              type: { type: Type.STRING }
+              title: { type: Type.STRING, description: "La matière" },
+              day: { type: Type.STRING, description: "Le jour (ex: Lundi)" },
+              startTime: { type: Type.STRING, description: "Heure de début (HH:MM)" },
+              endTime: { type: Type.STRING, description: "Heure de fin (HH:MM)" },
+              room: { type: Type.STRING, description: "La salle" },
+              teacher: { type: Type.STRING, description: "L'enseignant" },
+              type: { type: Type.STRING, description: "Type de cours (CM, TD, TP)" }
             },
             required: ["title", "day", "startTime", "endTime"]
           }

@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Construction, Hammer } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -787,6 +787,8 @@ export default function App() {
   };
 
   const handleScanText = async () => {
+    addNotification("Cette fonctionnalité est en cours de développement. Revenez bientôt !", "info");
+    return;
     if (!preview) return;
     
     setIsScanning(true);
@@ -1106,6 +1108,9 @@ export default function App() {
                               ? "Génération du calendrier..." 
                               : "Scanner le texte"}
                         </span>
+                        <span className="absolute top-0 right-0 px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase tracking-tighter rounded-bl-lg">
+                          WIP
+                        </span>
                       </button>
                     )}
 
@@ -1304,96 +1309,56 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-4xl space-y-8"
+              className="w-full max-w-2xl mx-auto py-12"
             >
-              <div className="grid grid-cols-1 gap-8">
-                {/* Library Section */}
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between px-2">
-                    <h3 className="text-2xl font-bold flex items-center gap-3">
-                      <Layers size={24} className="text-[var(--color-brand-accent)]" />
-                      Mes EDTs Importés
-                    </h3>
-                    <button 
-                      onClick={loadLibraryFiles}
-                      className="p-2 text-[var(--text-secondary)] hover:text-[var(--text)] transition-all"
-                    >
-                      <RotateCcw size={20} className={isLoadingLibrary ? "animate-spin" : ""} />
-                    </button>
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[3rem] p-12 text-center space-y-8 shadow-xl relative overflow-hidden">
+                {/* Decorative background elements */}
+                <div className="absolute top-0 left-0 w-32 h-32 bg-[var(--color-brand-accent)]/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+                <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full translate-x-1/4 translate-y-1/4 blur-3xl" />
+                
+                <div className="relative space-y-6">
+                  <motion.div 
+                    animate={{ 
+                      rotate: [0, -10, 10, -10, 0],
+                      y: [0, -5, 0]
+                    }}
+                    transition={{ 
+                      duration: 4, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="w-24 h-24 bg-[var(--bg)] rounded-3xl flex items-center justify-center mx-auto shadow-inner border border-[var(--border)]"
+                  >
+                    <Construction size={48} className="text-[var(--color-brand-accent)]" />
+                  </motion.div>
+                  
+                  <div className="space-y-3">
+                    <h2 className="text-3xl font-bold tracking-tight">Espace Personnel</h2>
+                    <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[var(--color-brand-accent)]/10 text-[var(--color-brand-accent)] text-xs font-bold uppercase tracking-wider">
+                      <Hammer size={12} />
+                      En cours de construction
+                    </div>
+                  </div>
+                  
+                  <p className="text-[var(--text-secondary)] text-lg max-w-md mx-auto leading-relaxed">
+                    Nous préparons un espace dédié pour sauvegarder et synchroniser tous vos emplois du temps.
+                  </p>
+                  
+                  <div className="pt-4">
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+                      <div className="w-2 h-2 rounded-full bg-[var(--color-brand-accent)] animate-pulse" />
+                      Lancement prévu prochainement
+                    </div>
                   </div>
 
-                  {isLoadingLibrary ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-4">
-                      <Loader2 size={40} className="animate-spin text-[var(--color-brand-accent)]" />
-                      <p className="text-[var(--text-secondary)] font-medium">Chargement de votre bibliothèque...</p>
-                    </div>
-                  ) : libraryFiles.length === 0 ? (
-                    <div className="bg-[var(--surface)] border-2 border-dashed border-[var(--border)] rounded-[2.5rem] p-12 text-center space-y-4">
-                      <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mx-auto text-[var(--text-secondary)]">
-                        <FileText size={32} />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-bold text-lg">Votre bibliothèque est vide</p>
-                        <p className="text-sm text-[var(--text-secondary)]">Importez ou créez votre premier emploi du temps pour le voir ici.</p>
-                      </div>
-                      <button 
-                        onClick={() => setActiveTab('home')}
-                        className="px-6 py-2 bg-[var(--color-brand-accent)] text-white rounded-full text-sm font-bold shadow-md"
-                      >
-                        Commencer
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {libraryFiles.map((file, idx) => (
-                        <motion.div
-                          key={file.name + idx}
-                          initial={{ opacity: 0, scale: 0.95 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className="group bg-[var(--surface)] border border-[var(--border)] rounded-3xl p-4 flex items-center gap-4 hover:shadow-lg transition-all"
-                        >
-                            <div className={cn(
-                              "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0",
-                              file.type === 'pdf' ? "bg-red-50 text-red-500" : "bg-blue-50 text-blue-500"
-                            )}>
-                              {file.type === 'pdf' ? <FileText size={24} /> : <ImageIcon size={24} />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm truncate">{file.name.split('/').pop()}</p>
-                              <p className="text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">
-                                {file.type === 'pdf' ? 'Document PDF' : 'Image PNG'}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => handleViewLibraryFile(file)}
-                                className="p-2 hover:bg-[var(--bg)] rounded-xl text-[var(--text-secondary)]"
-                                title="Voir"
-                              >
-                                <Eye size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleEditLibraryFile(file)}
-                                className="p-2 hover:bg-[var(--bg)] rounded-xl text-[var(--text-secondary)]"
-                                title="Modifier"
-                              >
-                                <Edit2 size={18} />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteLibraryFile(file)}
-                                className="p-2 hover:bg-red-50 rounded-xl text-red-500"
-                                title="Supprimer"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <button 
+                    onClick={() => setActiveTab('home')}
+                    className="mt-8 px-8 py-3 bg-[var(--text)] text-[var(--bg)] rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all shadow-lg"
+                  >
+                    Retour à l'accueil
+                  </button>
                 </div>
+              </div>
             </motion.div>
           )}
 
@@ -1448,33 +1413,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
-                  <Bug size={18} />
-                  <h3 className="font-bold">Support & Diagnostic</h3>
-                </div>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Si vous rencontrez des problèmes, utilisez ce bouton pour copier les informations techniques et les envoyer au support.
-                  </p>
-                  <button 
-                    onClick={() => {
-                      const info = {
-                        ua: navigator.userAgent,
-                        url: window.location.href,
-                        origin: window.location.origin,
-                        platform: Capacitor.getPlatform()
-                      };
-                      navigator.clipboard.writeText(JSON.stringify(info, null, 2));
-                      addNotification("Infos de diagnostic copiées !", "success");
-                    }}
-                    className="w-full py-3 bg-[var(--bg)] border border-[var(--border)] rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-[var(--border)] transition-all"
-                  >
-                    <Copy size={18} />
-                    Copier les infos de diagnostic
-                  </button>
-                </div>
-              </div>
+              {/* Support & Diagnostic section removed */}
 
               {isDeveloperMode && (
                 <div className="space-y-4">
@@ -1632,7 +1571,7 @@ export default function App() {
                       { id: 'eraser', label: 'Gomme', description: 'Remplace une zone par du blanc (outil classique).', icon: <Eraser size={16} /> },
                       { id: 'zoom', label: 'Zoom & Pan', description: 'Permet de naviguer et de zoomer sur l\'image.', icon: <Maximize size={16} /> },
                       { id: 'undoRedo', label: 'Annuler/Rétablir', description: 'Boutons pour revenir en arrière ou rétablir une action.', icon: <Undo size={16} /> },
-                      { id: 'ocr', label: 'Scan Texte (OCR)', description: 'Extrait le texte de l\'image pour le copier.', icon: <Scan size={16} /> },
+                      { id: 'ocr', label: 'Scan Texte (OCR)', description: 'Extrait le texte de l\'image pour le copier.', icon: <Scan size={16} />, wip: true },
                     ].map((feature) => (
                       <div key={feature.id} className="space-y-3">
                         <div className="flex items-start justify-between gap-4">
@@ -1643,6 +1582,11 @@ export default function App() {
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-2">
                                 <p className="font-bold leading-none">{feature.label}</p>
+                                {feature.wip && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-tighter border border-amber-200 dark:border-amber-800/50">
+                                    WIP
+                                  </span>
+                                )}
                               </div>
                               <p className="text-xs text-[var(--text-secondary)] leading-tight">{feature.description}</p>
                             </div>
@@ -1769,8 +1713,13 @@ export default function App() {
               activeTab === 'account' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
             )}
           >
-            <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Mon Espace</span>
+            <div className="relative">
+              <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
+              <span className="absolute -top-1 -right-2 px-1 py-0.5 bg-amber-500 text-white text-[6px] font-black uppercase tracking-tighter rounded-full border border-white dark:border-gray-900 shadow-sm">
+                WIP
+              </span>
+            </div>
+            <span className="text-[10px] font-bold">Espace</span>
           </button>
           <button 
             onClick={() => setActiveTab('feedback')}
