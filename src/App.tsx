@@ -17,25 +17,69 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
 import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
 import { generateCalendarEvents, generateICS, type CalendarEvent } from './services/calendarService';
-
-// Custom components
-import { Logo } from './components/Logo';
-import { Toast, type Notification } from './components/Toast';
-import { HomeTab } from './components/HomeTab';
-import { AccountTab } from './components/AccountTab';
-import { SettingsTab } from './components/SettingsTab';
-import { cn } from './lib/utils';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
 
-// Save File Utility
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+// Notification system
+interface Notification {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
+function Toast({ message, type, onDismiss }: { message: string, type: 'success' | 'error' | 'info', onDismiss: () => void, key?: string }) {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  const styles = {
+    success: 'bg-emerald-950/90 text-emerald-50 border-emerald-500/20',
+    error: 'bg-rose-950/90 text-rose-50 border-rose-500/20',
+    info: 'bg-sky-950/90 text-sky-50 border-sky-500/20'
+  }[type];
+
+  const iconColor = {
+    success: 'text-emerald-400',
+    error: 'text-rose-400',
+    info: 'text-sky-400'
+  }[type];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
+      className={cn(
+        "px-3.5 py-2 backdrop-blur-xl border rounded-full text-xs font-semibold shadow-2xl flex items-center gap-2.5 pointer-events-auto min-w-[180px] max-w-[85vw]",
+        styles
+      )}
+    >
+      <div className={cn("shrink-0", iconColor)}>
+        {type === 'success' && <CheckCircle2 size={16} />}
+        {type === 'error' && <Bug size={16} />}
+        {type === 'info' && <Loader2 size={16} className="animate-spin" />}
+      </div>
+      <span className="flex-1 truncate leading-none">{message}</span>
+      <button onClick={onDismiss} className="p-1 hover:bg-white/10 rounded-full transition-all opacity-40 hover:opacity-100">
+        <X size={12} />
+      </button>
+    </motion.div>
+  );
+}
 
 // Save File Utility
 async function saveFile(blob: Blob, suggestedName: string, mimeType: string) {
@@ -73,6 +117,76 @@ const BASE_URL = window.location.origin.includes('localhost')
   ? 'https://ais-dev-4xlkqj6wtjalfvtml4xabo-214876071276.europe-west2.run.app' 
   : '';
 
+const Logo = ({ showText = false }: { showText?: boolean }) => (
+  <div className={cn("flex items-center gap-3", showText ? "flex-row" : "flex-col")}>
+    <div className="relative w-12 h-12 flex items-center justify-center">
+      <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-sm overflow-visible">
+        {/* Extra sketchy background lines */}
+        <path d="M20,15 L25,10 M85,30 L90,35 M20,85 L25,90" stroke="currentColor" strokeWidth="1" className="text-[var(--border)]" />
+        
+        {/* Hand-drawn paper effect with more "sketchy" feel */}
+        <path 
+          d="M22,12 C25,10 62,11 65,12 L88,35 C89,38 88,82 87,85 C85,88 25,89 22,87 C20,85 21,15 22,12 Z" 
+          fill="white" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          className="fill-white text-black dark:text-white"
+        />
+        
+        {/* Sketchy double border effect */}
+        <path 
+          d="M24,14 C27,12 60,13 63,14 L86,37 C87,40 86,80 85,83 C83,86 27,87 24,85" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="1" 
+          strokeLinecap="round" 
+          className="text-[var(--border)]"
+        />
+
+        {/* Folded corner */}
+        <path d="M65,12 L65,35 L88,35" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-black dark:text-white" />
+        
+        {/* Red Scribbles - more vibrant and sketchy */}
+        <path d="M30,42 Q45,38 60,42 T75,40" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" className="opacity-80" />
+        <path d="M32,52 Q42,48 55,52 T70,50" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" className="opacity-80" />
+        <path d="M30,62 Q48,58 65,62 T72,60" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" className="opacity-80" />
+
+        {/* Crumbs/Shavings */}
+        <circle cx="82" cy="78" r="1.5" fill="currentColor" className="text-black dark:text-white" />
+        <circle cx="88" cy="82" r="1" fill="currentColor" className="text-black dark:text-white" />
+        <circle cx="78" cy="85" r="1.2" fill="currentColor" className="text-black dark:text-white" />
+
+        {/* Eraser - tilted and detailed */}
+        <g transform="translate(45, 55) rotate(-25)">
+          {/* Blue part */}
+          <path 
+            d="M0,5 Q0,0 5,0 L20,0 L20,30 L5,30 Q0,30 0,25 Z" 
+            fill="#3b82f6" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            className="text-black dark:text-white"
+          />
+          {/* White part */}
+          <path 
+            d="M20,0 L35,0 Q40,0 40,5 L40,25 Q40,30 35,30 L20,30 Z" 
+            fill="white" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            className="text-black dark:text-white"
+          />
+          {/* Eraser texture lines */}
+          <path d="M25,5 L25,25" stroke="currentColor" strokeWidth="1" opacity="0.2" className="text-black dark:text-white" />
+          <path d="M30,5 L30,25" stroke="currentColor" strokeWidth="1" opacity="0.2" className="text-black dark:text-white" />
+        </g>
+      </svg>
+    </div>
+    {showText && (
+      <span className="text-2xl font-hand tracking-wide text-black dark:text-white">Smart EDT</span>
+    )}
+  </div>
+);
 
 export default function App() {
   const [preview, setPreview] = useState<string | null>(null);
@@ -303,7 +417,7 @@ export default function App() {
   const [selectedPageForEdit, setSelectedPageForEdit] = useState(1);
 
   const addNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    const id = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    const id = Math.random().toString(36).substring(7);
     setNotifications(prev => [...prev, { id, message, type }]);
   };
 
@@ -832,66 +946,719 @@ export default function App() {
 
       <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-12 flex flex-col items-center justify-center pb-48 md:pb-12">
         <AnimatePresence mode="wait">
-          <HomeTab 
-            key="home-tab"
-            activeTab={activeTab}
-            preview={preview}
-            processedPreview={processedPreview}
-            ocrText={ocrText}
-            calendarEvents={calendarEvents}
-            isCopied={isCopied}
-            isCapturing={isCapturing}
-            getRootProps={getRootProps}
-            getInputProps={getInputProps}
-            isDragActive={isDragActive}
-            copyToClipboard={copyToClipboard}
-            setOcrText={setOcrText}
-            handleDownloadICS={handleDownloadICS}
-            setCalendarEvents={setCalendarEvents}
-            handleDownloadPdf={handleDownloadPdf}
-            handleDownloadImage={handleDownloadImage}
-            handleShare={handleShare}
-            handleCapturePage={handleCapturePage}
-            handleScanText={handleScanText}
-            fileType={fileType}
-            numPages={numPages}
-            pdfError={pdfError}
-            containerWidth={containerWidth}
-            handleStartEditor={() => setIsEditorOpen(true)}
-            isProcessing={isProcessing}
-            enabledFeatures={enabledFeatures}
-            isScanning={isScanning}
-            scanProgress={scanProgress}
-            isGeneratingCalendar={isGeneratingCalendar}
-          />
+          {activeTab === 'home' && (
+            <motion.div 
+              key="upload-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full space-y-8"
+            >
+              {/* Last Saved Widget */}
+              {lastSavedEDT && !preview && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="w-full p-4 bg-[var(--surface)] rounded-3xl border border-[var(--border)] shadow-sm flex items-center gap-4 cursor-pointer hover:bg-[var(--border)] transition-all group"
+                  onClick={() => handleViewLibraryFile(lastSavedEDT)}
+                >
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/5 flex items-center justify-center shrink-0 border border-black/5">
+                    {lastSavedEDT.type === 'image' && lastSavedEDT.data ? (
+                      <img src={lastSavedEDT.data} alt="Dernier EDT" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={cn("flex flex-col items-center justify-center", lastSavedEDT.type === 'pdf' ? "text-red-500" : "text-blue-500")}>
+                        {lastSavedEDT.type === 'pdf' ? <FileText size={24} /> : <ImageIcon size={24} />}
+                        <span className="text-[8px] font-bold uppercase">{lastSavedEDT.type}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-[var(--color-brand-accent)] uppercase tracking-wider mb-0.5">Dernier enregistré</p>
+                    <p className="font-bold truncate text-sm">{lastSavedEDT.name.split('/').pop()}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-mono uppercase">
+                      {lastSavedEDT.name.includes('_') ? new Date(parseInt(lastSavedEDT.name.split('_')[1])).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Fichier'}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleViewLibraryFile(lastSavedEDT); }}
+                      className="p-2 rounded-full bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm"
+                    >
+                      <Eye size={18} />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleEditLibraryFile(lastSavedEDT); }}
+                      className="p-2 rounded-full bg-white hover:bg-[var(--color-brand-accent)] hover:text-white transition-all shadow-sm"
+                      title="Modifier"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (window.confirm('Voulez-vous retirer ce fichier de l\'aperçu rapide ? (Le fichier restera dans votre bibliothèque)')) {
+                          setLastSavedEDT(null);
+                          localStorage.removeItem('smartedt_last_saved');
+                          addNotification('Aperçu nettoyé.', 'info');
+                        }
+                      }}
+                      className="p-2 rounded-full bg-white hover:bg-rose-500 hover:text-white transition-all shadow-sm text-rose-500"
+                      title="Nettoyer l'aperçu"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
 
-          <AccountTab 
-            key="account-tab"
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
+              {preview ? (
+                <div className="w-full flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold">Aperçu du document</h2>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setPreview(null);
+                          setProcessedPreview(null);
+                          setPdfForSelection(null);
+                          setIsPageSelectorOpen(false);
+                          setFileType(null);
+                          setNumPages(null);
+                          setPdfError(null);
+                          setIsProcessing(false);
+                          addNotification("Espace d'édition réinitialisé", "success");
+                        }} 
+                        className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-xl font-bold transition-all shadow-sm"
+                      >
+                        <RotateCcw size={18} />
+                        Réinitialiser
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div 
+                    ref={pdfContainerRef}
+                    className="w-full border-2 border-[var(--border)] rounded-3xl overflow-hidden bg-[var(--surface)] p-4 max-h-[70vh] overflow-y-auto"
+                  >
+                    {fileType === 'application/pdf' && !processedPreview ? (
+                      <Document 
+                        file={preview} 
+                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                        onLoadError={(error) => setPdfError(error.message)}
+                        className="flex flex-col items-center gap-6"
+                      >
+                        {pdfError ? (
+                          <div className='text-red-500 p-4 bg-red-100 rounded-lg'>
+                            <p><strong>Erreur de chargement du PDF:</strong></p>
+                            <p>{pdfError}</p>
+                          </div>
+                        ) : (
+                          Array.from(new Array(numPages || 0), (el, index) => (
+                            <div key={`page_${index + 1}`} className="max-w-full overflow-x-auto bg-white rounded-lg shadow-sm border border-black/5">
+                              <Page 
+                                pageNumber={index + 1} 
+                                renderTextLayer={true} 
+                                renderAnnotationLayer={true}
+                                width={containerWidth}
+                                className="max-w-full"
+                              />
+                            </div>
+                          ))
+                        )}
+                      </Document>
+                    ) : (
+                      <img src={processedPreview || preview} alt="Aperçu de l'emploi du temps" className="w-full h-auto object-contain rounded-xl" />
+                    )}
+                  </div>
 
-          <SettingsTab 
-            key="settings-tab"
-            activeTab={activeTab}
-            autoRotateEnabled={autoRotateEnabled}
-            setAutoRotateEnabled={setAutoRotateEnabled}
-            isDarkMode={isDarkMode}
-            setIsDarkMode={setIsDarkMode}
-            isDeveloperMode={isDeveloperMode}
-            setIsDeveloperMode={setIsDeveloperMode}
-            whatsappNumber={whatsappNumber}
-            setWhatsappNumber={setWhatsappNumber}
-            logoLinkEnabled={logoLinkEnabled}
-            setLogoLinkEnabled={setLogoLinkEnabled}
-            logoLinkUrl={logoLinkUrl}
-            setLogoLinkUrl={setLogoLinkUrl}
-            onCapturePage={handleCapturePage}
-            isCapturing={isCapturing}
-            addNotification={addNotification}
-            enabledFeatures={enabledFeatures}
-            setEnabledFeatures={setEnabledFeatures}
-          />
+                  <div className="w-full p-4 bg-[var(--surface)]/50 rounded-2xl border border-[var(--border)] flex flex-wrap items-center justify-center gap-4">
+                    <button
+                      onClick={handleStartEditor}
+                      disabled={isProcessing}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--text)] text-[var(--bg)] hover:opacity-90 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin" />
+                          Préparation...
+                        </>
+                      ) : (
+                        <>
+                          <Edit2 size={20} />
+                          {processedPreview ? "Continuer l'édition" : "Nettoyer l'EDT"}
+                        </>
+                      )}
+                    </button>
+
+                    {enabledFeatures.ocr && (
+                      <button
+                        onClick={handleScanText}
+                        disabled={isScanning}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)] transition-all disabled:opacity-50 relative overflow-hidden group"
+                      >
+                        {isScanning ? (
+                          <Loader2 size={20} className="animate-spin text-[var(--color-brand-accent)]" />
+                        ) : (
+                          <Scan size={20} className="text-[var(--text-secondary)]" />
+                        )}
+                        <span className={cn(isScanning || isGeneratingCalendar ? "text-[var(--color-brand-accent)]" : "text-[var(--text-secondary)]")}>
+                          {isScanning 
+                            ? `Analyse (${Math.round(scanProgress * 100)}%)` 
+                            : isGeneratingCalendar 
+                              ? "Génération du calendrier..." 
+                              : "Scanner le texte"}
+                        </span>
+                        <span className="absolute top-0 right-0 px-1.5 py-0.5 bg-amber-500 text-white text-[8px] font-black uppercase tracking-tighter rounded-bl-lg">
+                          WIP
+                        </span>
+                      </button>
+                    )}
+
+                    {/* OCR Results Section */}
+                    <AnimatePresence>
+                      {ocrText && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 20 }}
+                          className="w-full mt-8 p-6 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm space-y-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-[var(--color-brand-accent)]/10 text-[var(--color-brand-accent)] rounded-lg">
+                                <Scan size={20} />
+                              </div>
+                              <h3 className="font-bold text-lg">Texte Extrait</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={copyToClipboard}
+                                className={cn(
+                                  "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all",
+                                  isCopied 
+                                    ? "bg-emerald-500 text-white" 
+                                    : "bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--surface)]"
+                                )}
+                              >
+                                {isCopied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                                {isCopied ? "Copié !" : "Copier"}
+                              </button>
+                              <button
+                                onClick={() => setOcrText(null)}
+                                className="p-2 hover:bg-[var(--border)] rounded-lg transition-colors text-[var(--text-secondary)]"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <pre className="whitespace-pre-wrap font-sans text-sm text-[var(--text)] leading-relaxed">
+                              {ocrText}
+                            </pre>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                            <Sparkles size={14} className="text-[var(--color-brand-accent)]" />
+                            <span>Analysé intelligemment par l'IA</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Calendar Events Section */}
+                    <AnimatePresence>
+                      {calendarEvents && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          className="w-full mt-8 p-6 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-sm space-y-6"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg">
+                                <Calendar size={20} />
+                              </div>
+                              <h3 className="font-bold text-lg">Événements Détectés</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={handleDownloadICS}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20"
+                              >
+                                <Download size={16} />
+                                Exporter (.ics)
+                              </button>
+                              <button
+                                onClick={() => setCalendarEvents(null)}
+                                className="p-2 hover:bg-[var(--border)] rounded-lg transition-colors text-[var(--text-secondary)]"
+                              >
+                                <X size={20} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                            {calendarEvents.map((event, idx) => (
+                              <motion.div
+                                key={idx}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="p-4 bg-[var(--bg)] border border-[var(--border)] rounded-xl space-y-2 hover:border-[var(--color-brand-accent)]/30 transition-colors group"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <h4 className="font-bold text-[var(--text)] group-hover:text-[var(--color-brand-accent)] transition-colors line-clamp-2">
+                                    {event.title}
+                                  </h4>
+                                  {event.type && (
+                                    <span className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded text-[10px] font-bold text-[var(--text-secondary)] uppercase">
+                                      {event.type}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-3 text-xs text-[var(--text-secondary)]">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-amber-500" />
+                                    <span>{event.day}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Loader2 size={12} className="text-sky-500" />
+                                    <span>{event.startTime} - {event.endTime}</span>
+                                  </div>
+                                  {event.room && (
+                                    <div className="flex items-center gap-1">
+                                      <Maximize size={12} className="text-emerald-500" />
+                                      <span>{event.room}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {event.teacher && (
+                                  <div className="flex items-center gap-1 text-xs text-[var(--text-secondary)] pt-1 border-t border-[var(--border)]/50">
+                                    <User size={12} />
+                                    <span className="italic">{event.teacher}</span>
+                                  </div>
+                                )}
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {processedPreview && (
+                      <div className="w-full flex flex-col gap-3">
+                        <div className="flex flex-wrap items-center justify-center gap-4">
+                          <button
+                            onClick={handleDownloadPdf}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--color-brand-accent)] text-white hover:brightness-95 transition-all shadow-lg shadow-[var(--color-brand-accent)]/20"
+                          >
+                            <Download size={20} />
+                            Enregistrer PDF
+                          </button>
+                          
+                          <button
+                            onClick={handleDownloadImage}
+                            className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-[var(--surface)] text-[var(--text)] border border-[var(--border)] hover:bg-[var(--border)] transition-all"
+                          >
+                            <ImageIcon size={20} />
+                            Enregistrer Image
+                          </button>
+                        </div>
+
+                        {Capacitor.isNativePlatform() && (
+                          <button
+                            onClick={handleShare}
+                            className="w-full flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold bg-black text-white hover:brightness-95 transition-all"
+                          >
+                            <Send size={20} />
+                            Partager l'EDT
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div 
+                  {...getRootProps()} 
+                  className={cn(
+                    "w-full aspect-video border-2 border-dashed rounded-3xl flex flex-col items-center justify-center p-12 transition-all cursor-pointer",
+                    isDragActive ? "border-[var(--color-brand-accent)] bg-[var(--color-brand-accent)]/5" : "border-black/20 hover:border-black/40"
+                  )}
+                >
+                  <input {...getInputProps()} />
+                  <div className="text-center space-y-4">
+                    <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mx-auto">
+                      <Upload className="text-[var(--text-secondary)]" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Glissez votre PDF ou Image ici</p>
+                      <p className="text-sm text-[var(--text-secondary)]">PNG, JPG ou PDF jusqu'à 10MB</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'account' && (
+            <motion.div
+              key="account-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-2xl mx-auto py-12"
+            >
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[3rem] p-12 text-center space-y-8 shadow-xl relative overflow-hidden">
+                {/* Decorative background elements */}
+                <div className="absolute top-0 left-0 w-32 h-32 bg-[var(--color-brand-accent)]/5 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
+                <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full translate-x-1/4 translate-y-1/4 blur-3xl" />
+                
+                <div className="relative space-y-6">
+                  <motion.div 
+                    animate={{ 
+                      rotate: [0, -10, 10, -10, 0],
+                      y: [0, -5, 0]
+                    }}
+                    transition={{ 
+                      duration: 4, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="w-24 h-24 bg-[var(--bg)] rounded-3xl flex items-center justify-center mx-auto shadow-inner border border-[var(--border)]"
+                  >
+                    <Construction size={48} className="text-[var(--color-brand-accent)]" />
+                  </motion.div>
+                  
+                  <div className="space-y-3">
+                    <h2 className="text-3xl font-bold tracking-tight">Espace Personnel</h2>
+                    <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[var(--color-brand-accent)]/10 text-[var(--color-brand-accent)] text-xs font-bold uppercase tracking-wider">
+                      <Hammer size={12} />
+                      En cours de construction
+                    </div>
+                  </div>
+                  
+                  <p className="text-[var(--text-secondary)] text-lg max-w-md mx-auto leading-relaxed">
+                    Nous préparons un espace dédié pour sauvegarder et synchroniser tous vos emplois du temps.
+                  </p>
+                  
+                  <div className="pt-4">
+                    <div className="flex items-center justify-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+                      <div className="w-2 h-2 rounded-full bg-[var(--color-brand-accent)] animate-pulse" />
+                      Lancement prévu prochainement
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setActiveTab('home')}
+                    className="mt-8 px-8 py-3 bg-[var(--text)] text-[var(--bg)] rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all shadow-lg"
+                  >
+                    Retour à l'accueil
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'settings' && (
+            <motion.div
+              key="settings-view"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-md space-y-8"
+            >
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-bold">Réglages</h2>
+                <p className="text-sm text-[var(--text-secondary)]">Personnalisez votre expérience Smart EDT.</p>
+              </div>
+              
+              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-bold">Rotation automatique</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Pivote l'interface d'édition sur mobile</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={autoRotateEnabled}
+                        onChange={(e) => setAutoRotateEnabled(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                    </label>
+                  </div>
+
+                  <div className="h-px bg-[var(--border)]" />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="font-bold">Mode sombre</p>
+                      <p className="text-sm text-[var(--text-secondary)]">Interface plus sombre pour la nuit</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={isDarkMode}
+                        onChange={(e) => setIsDarkMode(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Support & Diagnostic section removed */}
+
+              {isDeveloperMode && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                      <Shield size={20} />
+                      <h3 className="font-bold text-lg">Dashboard Admin</h3>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsDeveloperMode(false);
+                      }}
+                      className="text-[10px] font-bold text-amber-600/60 uppercase hover:text-amber-600 transition-colors"
+                    >
+                      Quitter le mode admin
+                    </button>
+                  </div>
+
+                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-3xl overflow-hidden shadow-sm">
+                    <div className="p-6 space-y-8">
+                      {/* WhatsApp Config */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Phone size={18} className="text-amber-600" />
+                            <p className="font-bold">Configuration WhatsApp</p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">Numéro (Format international sans +)</label>
+                          <div className="relative">
+                            <input 
+                              type="text" 
+                              value={whatsappNumber}
+                              onChange={(e) => setWhatsappNumber(e.target.value)}
+                              placeholder="Ex: 33612345678"
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl outline-none text-sm focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
+                            />
+                            <button 
+                              onClick={() => {
+                                localStorage.setItem('smartedt_whatsapp', whatsappNumber);
+                                addNotification('Numéro WhatsApp sauvegardé localement !', 'success');
+                              }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-amber-600 text-white rounded-lg hover:brightness-95 transition-all disabled:opacity-50"
+                            >
+                              <CheckCircle2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      {/* Logo Hypertexte */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Link2 size={18} className="text-amber-600" />
+                            <p className="font-bold">Logo Hypertexte</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={logoLinkEnabled}
+                              onChange={(e) => setLogoLinkEnabled(e.target.checked)}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 opacity-50 peer-enabled:opacity-100"></div>
+                          </label>
+                        </div>
+                        
+                        {logoLinkEnabled && (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold text-amber-600/60 uppercase ml-1">URL du lien</p>
+                            <input 
+                              type="text" 
+                              value={logoLinkUrl}
+                              onChange={(e) => setLogoLinkUrl(e.target.value)}
+                              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-50"
+                              placeholder="https://example.com"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-amber-200 dark:bg-amber-800/40" />
+
+                      {/* Tools & Status */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Cpu size={18} className="text-amber-600" />
+                            <p className="font-bold">Outils & Status</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-bold">Capture d'écran</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Capture de la page actuelle</p>
+                            </div>
+                            <button 
+                              onClick={handleCapturePage}
+                              disabled={isCapturing}
+                              className="px-4 py-2 bg-amber-100 dark:bg-amber-800/40 text-amber-700 dark:text-amber-300 rounded-xl text-xs font-bold hover:bg-amber-200 transition-colors disabled:opacity-50"
+                            >
+                              {isCapturing ? <Loader2 size={14} className="animate-spin" /> : 'Capturer'}
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded-2xl border border-[var(--border)]">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-bold">Debug Info</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Copier les infos système</p>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const info = {
+                                  ua: navigator.userAgent,
+                                  url: window.location.href,
+                                  origin: window.location.origin,
+                                  platform: Capacitor.getPlatform()
+                                };
+                                navigator.clipboard.writeText(JSON.stringify(info, null, 2));
+                                addNotification('Infos copiées !', 'success');
+                              }}
+                              className="px-4 py-2 bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold hover:bg-blue-200 transition-colors"
+                            >
+                              Copier
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-sm">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-lg">Fonctionnalités de l'éditeur</h3>
+                      <p className="text-sm text-[var(--text-secondary)]">Désactivez les outils inutiles pour simplifier l'interface.</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {[
+                      { id: 'removeText', label: 'Effacer Texte', description: 'Supprime intelligemment le texte en conservant le fond.', icon: <Edit2 size={16} /> },
+                      { id: 'removeColor', label: 'Effacer Couleur', description: 'Baguette magique pour effacer une couleur spécifique.', icon: <Wand2 size={16} /> },
+                      { id: 'wordBox', label: 'Word Box', description: 'Ajoute des boîtes de texte stylisées avec mise en page.', icon: <Type size={16} /> },
+                      { id: 'eraser', label: 'Gomme', description: 'Remplace une zone par du blanc (outil classique).', icon: <Eraser size={16} /> },
+                      { id: 'zoom', label: 'Zoom & Pan', description: 'Permet de naviguer et de zoomer sur l\'image.', icon: <Maximize size={16} /> },
+                      { id: 'undoRedo', label: 'Annuler/Rétablir', description: 'Boutons pour revenir en arrière ou rétablir une action.', icon: <Undo size={16} /> },
+                      { id: 'ocr', label: 'Scan Texte (OCR)', description: 'Extrait le texte de l\'image pour le copier.', icon: <Scan size={16} />, wip: true },
+                    ].map((feature) => (
+                      <div key={feature.id} className="space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex gap-3">
+                            <div className="w-10 h-10 flex items-center justify-center bg-[var(--surface)] rounded-xl text-[var(--text-secondary)] shrink-0">
+                              {feature.icon}
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold leading-none">{feature.label}</p>
+                                {feature.wip && (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[8px] font-black uppercase tracking-tighter border border-amber-200 dark:border-amber-800/50">
+                                    WIP
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-[var(--text-secondary)] leading-tight">{feature.description}</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer" 
+                              checked={(enabledFeatures as any)[feature.id]}
+                              onChange={(e) => setEnabledFeatures(prev => ({ ...prev, [feature.id]: e.target.checked }))}
+                            />
+                            <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                          </label>
+                        </div>
+                        
+                        {feature.id === 'wordBox' && enabledFeatures.wordBox && (
+                          <div className="ml-13 p-3 bg-[var(--surface)] rounded-2xl flex items-center justify-between">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-bold">Version simplifiée</p>
+                              <p className="text-[10px] text-[var(--text-secondary)]">Masque les options de mise en page avancées.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                              <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={enabledFeatures.wordBoxSimplified}
+                                onChange={(e) => setEnabledFeatures(prev => ({ ...prev, wordBoxSimplified: e.target.checked }))}
+                              />
+                              <div className="w-9 h-5 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-brand-accent)]"></div>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center space-y-2 pb-8">
+                <button 
+                  onMouseDown={() => {
+                    longPressTimer.current = setTimeout(() => {
+                      setIsDeveloperMode(true);
+                      alert('Mode Développeur activé ! 🛠️');
+                    }, 5000);
+                  }}
+                  onMouseUp={() => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  }}
+                  onMouseLeave={() => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  }}
+                  onTouchStart={() => {
+                    longPressTimer.current = setTimeout(() => {
+                      setIsDeveloperMode(true);
+                      alert('Mode Développeur activé ! 🛠️');
+                    }, 5000);
+                  }}
+                  onTouchEnd={() => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  }}
+                  onTouchCancel={() => {
+                    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+                  }}
+                  className="text-xs text-[var(--text-secondary)] font-mono hover:text-[var(--text)] transition-colors select-none"
+                >
+                  VERSION 1.0.0
+                </button>
+                <p className="text-xs text-[var(--text-secondary)] font-mono uppercase tracking-widest">SMART EDT © 2026</p>
+              </div>
+            </motion.div>
+          )}
 
           {activeTab === 'feedback' && (
             <motion.div
@@ -990,7 +1757,6 @@ export default function App() {
       <AnimatePresence>
         {viewerFile && (
           <motion.div 
-            key="file-viewer-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1130,7 +1896,7 @@ export default function App() {
       {/* Page Selector Modal for Multi-page PDF */}
       <AnimatePresence>
         {isPageSelectorOpen && (
-          <div key="page-selector-modal" className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
