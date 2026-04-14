@@ -5,7 +5,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, MessageSquarePlus, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Key } from 'lucide-react';
+import { Upload, Sparkles, Calendar, User, Settings, Wand2, Loader2, X, Edit2, Download, Image as ImageIcon, ChevronLeft, Bug, Send, Lightbulb, Eraser, Type, Maximize, Maximize2, Undo, Scan, Copy, CheckCircle2, Shield, MessageSquare, Link2, Cpu, Phone, Layers, Eye, Trash2, RotateCcw, FileText, Key } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -20,7 +20,6 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import ImageEditor from './components/ImageEditor';
-import { FeedbackForm } from './components/FeedbackForm';
 import { performOCR } from './services/ocrService';
 import { generateCalendarEvents, generateICS, type CalendarEvent } from './services/calendarService';
 
@@ -207,7 +206,7 @@ export default function App() {
   const [containerWidth, setContainerWidth] = useState<number>(800);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorImageUrl, setEditorImageUrl] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings' | 'feedback'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'account' | 'settings'>('home');
   const [lastSavedEDT, setLastSavedEDT] = useState<{ name: string, type: 'image' | 'pdf', data?: string } | null>(() => {
     const saved = localStorage.getItem('smartedt_last_saved');
     return saved ? JSON.parse(saved) : null;
@@ -936,13 +935,6 @@ export default function App() {
           {activeTab === 'home' ? (
             <>
               <button 
-                onClick={() => setActiveTab('feedback')}
-                className="p-2 hover:bg-black/5 rounded-full transition-colors hidden md:block"
-                title="Dépôt d'idées & Bugs"
-              >
-                <MessageSquarePlus size={20} className="text-[var(--text-secondary)]" />
-              </button>
-              <button 
                 onClick={() => setActiveTab('settings')}
                 className="p-2 hover:bg-black/5 rounded-full transition-colors"
                 title="Réglages"
@@ -1594,34 +1586,6 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 px-2 text-[var(--text-secondary)]">
-                  <Bug size={18} />
-                  <h3 className="font-bold">Support & Diagnostic</h3>
-                </div>
-                <div className="bg-[var(--surface)] rounded-3xl border border-[var(--border)] p-6 space-y-4">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Si vous rencontrez des problèmes, utilisez ce bouton pour copier les informations techniques et les envoyer au support.
-                  </p>
-                  <button 
-                    onClick={() => {
-                      const info = {
-                        ua: navigator.userAgent,
-                        url: window.location.href,
-                        origin: window.location.origin,
-                        platform: Capacitor.getPlatform()
-                      };
-                      navigator.clipboard.writeText(JSON.stringify(info, null, 2));
-                      addNotification("Infos de diagnostic copiées !", "success");
-                    }}
-                    className="w-full py-3 bg-[var(--bg)] border border-[var(--border)] rounded-2xl flex items-center justify-center gap-2 font-bold hover:bg-[var(--border)] transition-all"
-                  >
-                    <Copy size={18} />
-                    Copier les infos de diagnostic
-                  </button>
-                </div>
-              </div>
-
               {isDeveloperMode && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
@@ -1861,20 +1825,6 @@ export default function App() {
               </div>
             </motion.div>
           )}
-
-          {activeTab === 'feedback' && (
-            <motion.div
-              key="feedback-view"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-md px-4"
-            >
-              <div className="bg-[var(--surface)] p-6 rounded-[2.5rem] border border-[var(--border)] shadow-xl shadow-black/5">
-                <FeedbackForm whatsappNumber={whatsappNumber} onClose={() => setActiveTab('home')} />
-              </div>
-            </motion.div>
-          )}
         </AnimatePresence>
       </main>
 
@@ -1917,16 +1867,6 @@ export default function App() {
           >
             <User size={22} strokeWidth={activeTab === 'account' ? 2.5 : 2} />
             <span className="text-[10px] font-bold">Mon Espace</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('feedback')}
-            className={cn(
-              "flex flex-col items-center justify-center gap-1 h-full rounded-2xl w-16 transition-all duration-300",
-              activeTab === 'feedback' ? "bg-[var(--color-brand-accent)] text-white shadow-lg scale-105" : "text-[var(--text-secondary)] hover:text-[var(--text)]"
-            )}
-          >
-            <MessageSquare size={22} strokeWidth={activeTab === 'feedback' ? 2.5 : 2} />
-            <span className="text-[10px] font-bold">Feedback</span>
           </button>
           <button 
             onClick={() => setActiveTab('settings')}
